@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bridge Share</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p>WINDOWS LAN FILE HUB</p>
+          <h1>Bridge Share</h1>
+          <span>Open on Windows, let phones scan the QR code, and share files on the same local network.</span>
+        </div>
+        <button id="quickStart">Start sharing</button>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h2>Shared folders</h2>
+          <p class="muted">Add one or more Windows folders. Phones can browse, upload, download, preview images, and delete files.</p>
+          <div id="folders" class="list"></div>
+          <div class="actions">
+            <button id="addFolders">Add folders</button>
+            <button id="clearFolders" class="ghost">Clear</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Connection</h2>
+          <p id="status" class="status">Service stopped</p>
+          <div class="actions">
+            <button id="toggleServer">Start service</button>
+          </div>
+          <div id="urls" class="urls"></div>
+          <img id="qr" class="qr" alt="QR code" />
+        </div>
+      </section>
+    </main>
+    <script src="./renderer.js"></script>
+  </body>
+</html>

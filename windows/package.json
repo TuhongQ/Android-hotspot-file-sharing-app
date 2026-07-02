@@ -1,0 +1,30 @@
+{
+  "name": "bridge-share-windows",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Windows LAN file sharing desktop app for phones on the same network.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11"
+  },
+  "build": {
+    "appId": "cn.local.bridgeshare.windows",
+    "productName": "Bridge Share",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    }
+  }
+}
