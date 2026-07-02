@@ -27,6 +27,11 @@ copyMachineCode.addEventListener("click", async () => {
   licenseMessage.textContent = "Machine code copied.";
   licenseMessage.classList.add("ok");
 });
+window.bridgeShare.onShowLicenseGate(async ({ license, message } = {}) => {
+  licenseInput.value = "";
+  renderLicense(license || await window.bridgeShare.licenseState(), { forceGate: true, message });
+  render(await window.bridgeShare.state());
+});
 document.getElementById("addFolders").addEventListener("click", async () => render(await window.bridgeShare.chooseFolders()));
 document.getElementById("clearFolders").addEventListener("click", async () => render(await window.bridgeShare.clearFolders()));
 toggleServer.addEventListener("click", toggle);
@@ -73,10 +78,10 @@ async function activate() {
   }
 }
 
-function renderLicense(nextLicense) {
+function renderLicense(nextLicense, options = {}) {
   licenseState = nextLicense;
   machineCodeEl.textContent = licenseState.machineCode;
-  if (licenseState.valid) {
+  if (licenseState.valid && !options.forceGate) {
     licenseGate.classList.add("hidden");
     appShell.classList.remove("app-hidden");
     const expiry = licenseState.expiresAt ? `Expires ${new Date(licenseState.expiresAt).toLocaleDateString()}` : "Permanent license";
@@ -87,7 +92,7 @@ function renderLicense(nextLicense) {
   }
   licenseGate.classList.remove("hidden");
   appShell.classList.add("app-hidden");
-  licenseMessage.textContent = licenseState.reason || "";
+  licenseMessage.textContent = options.message || licenseState.reason || "";
   licenseMessage.classList.remove("ok");
 }
 

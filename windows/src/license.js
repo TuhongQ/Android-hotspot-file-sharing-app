@@ -46,6 +46,15 @@ class LicenseManager {
     return this.state();
   }
 
+  clear() {
+    try {
+      fs.rmSync(this.licensePath, { force: true });
+    } catch {
+      // Missing or locked license files are treated as not activated.
+    }
+    return this.state();
+  }
+
   isValid() {
     return this.state().valid;
   }

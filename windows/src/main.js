@@ -1,4 +1,4 @@
-const { app, BrowserWindow, clipboard, dialog, ipcMain, shell, screen } = require("electron");
+const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell, screen } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -31,6 +31,7 @@ function createWindow() {
     }
   });
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
+  buildMenu();
 }
 
 app.whenReady().then(() => {
@@ -119,6 +120,58 @@ ipcMain.handle("copyMachineCode", async () => {
   clipboard.writeText(licenseManager.state().machineCode);
   return true;
 });
+
+function buildMenu() {
+  const template = [
+    {
+      label: "授权",
+      submenu: [
+        {
+          label: "重新注册",
+          click: () => showLicenseGate("请输入新的注册码。")
+        },
+        {
+          label: "移除注册",
+          click: async () => {
+            const result = await dialog.showMessageBox(mainWindow, {
+              type: "warning",
+              buttons: ["移除注册", "取消"],
+              defaultId: 1,
+              cancelId: 1,
+              title: "移除注册",
+              message: "确定要移除当前注册码吗？",
+              detail: "移除后共享服务会停止，需要重新输入注册码才能继续使用。"
+            });
+            if (result.response !== 0) return;
+            stopServer();
+            const nextState = licenseManager.clear();
+            showLicenseGate("注册码已移除，请重新注册。", nextState);
+          }
+        },
+        { type: "separator" },
+        {
+          label: "复制机器码",
+          click: () => clipboard.writeText(licenseManager.state().machineCode)
+        }
+      ]
+    },
+    {
+      label: "查看",
+      submenu: [
+        { role: "reload", label: "刷新" },
+        { role: "toggleDevTools", label: "开发者工具" }
+      ]
+    }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function showLicenseGate(message, nextLicenseState = licenseManager.state()) {
+  if (server) stopServer();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("showLicenseGate", { license: nextLicenseState, message });
+  }
+}
 
 function startServer() {
   if (server || folders.length === 0 || !requireLicense()) return;
