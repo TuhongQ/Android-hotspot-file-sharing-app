@@ -36,8 +36,7 @@
         </div>
         <div class="hero-actions">
           <button id="quickStart">Start sharing</button>
-          <button id="reRegister" class="ghost">Register again</button>
-          <button id="removeRegistration" class="ghost danger">Remove registration</button>
+          <button id="settingsButton" class="ghost">Settings</button>
         </div>
       </section>
 
@@ -75,6 +74,27 @@
         </div>
       </section>
     </main>
+
+    <div id="settingsDialog" class="settings-dialog hidden" role="dialog" aria-modal="true">
+      <section class="settings-panel">
+        <div class="settings-head">
+          <div>
+            <p class="eyebrow">SETTINGS</p>
+            <h2>Bridge Share settings</h2>
+          </div>
+          <button id="closeSettings" class="ghost">Close</button>
+        </div>
+
+        <div class="settings-section">
+          <h3>License</h3>
+          <p id="settingsLicenseSummary" class="muted">Loading license status...</p>
+          <div class="settings-actions">
+            <button id="reRegister">Register again</button>
+            <button id="removeRegistration" class="ghost danger">Remove registration</button>
+          </div>
+        </div>
+      </section>
+    </div>
     <script src="./renderer.js"></script>
   </body>
 </html>

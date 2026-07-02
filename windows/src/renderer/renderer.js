@@ -18,6 +18,10 @@ const urlsEl = document.getElementById("urls");
 const qrEl = document.getElementById("qr");
 const toggleServer = document.getElementById("toggleServer");
 const quickStart = document.getElementById("quickStart");
+const settingsButton = document.getElementById("settingsButton");
+const settingsDialog = document.getElementById("settingsDialog");
+const closeSettings = document.getElementById("closeSettings");
+const settingsLicenseSummary = document.getElementById("settingsLicenseSummary");
 const reRegister = document.getElementById("reRegister");
 const removeRegistration = document.getElementById("removeRegistration");
 const clientsEl = document.getElementById("clients");
@@ -33,12 +37,22 @@ copyMachineCode.addEventListener("click", async () => {
   licenseMessage.textContent = "Machine code copied.";
   licenseMessage.classList.add("ok");
 });
+settingsButton.addEventListener("click", openSettings);
+closeSettings.addEventListener("click", closeSettingsDialog);
+settingsDialog.addEventListener("click", (event) => {
+  if (event.target === settingsDialog) closeSettingsDialog();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeSettingsDialog();
+});
 reRegister.addEventListener("click", async () => {
+  closeSettingsDialog();
   licenseInput.value = "";
   renderLicense(await window.bridgeShare.licenseState(), { forceGate: true, message: "Paste a new registration code to update this computer." });
 });
 removeRegistration.addEventListener("click", async () => {
   if (!confirm("Remove the saved registration code from this computer?")) return;
+  closeSettingsDialog();
   const nextLicense = await window.bridgeShare.clearLicense();
   licenseInput.value = "";
   if (nextLicense.canUse) {
@@ -115,6 +129,7 @@ function renderLicense(nextLicense, options = {}) {
     licenseSummary.textContent = licenseSummaryText();
     reRegister.textContent = licenseState.valid ? "Register again" : "Register";
     removeRegistration.style.display = licenseState.valid ? "inline-flex" : "none";
+    settingsLicenseSummary.textContent = licenseSummaryText();
     licenseMessage.textContent = licenseState.valid ? "Activated successfully." : "Trial started.";
     licenseMessage.classList.add("ok");
     return;
@@ -145,6 +160,17 @@ function licenseSummaryText() {
   return "Registration required";
 }
 
+function openSettings() {
+  settingsLicenseSummary.textContent = licenseSummaryText();
+  reRegister.textContent = licenseState.valid ? "Register again" : "Register";
+  removeRegistration.style.display = licenseState.valid ? "inline-flex" : "none";
+  settingsDialog.classList.remove("hidden");
+}
+
+function closeSettingsDialog() {
+  settingsDialog.classList.add("hidden");
+}
+
 async function toggle() {
   render(state.running ? await window.bridgeShare.stopServer() : await window.bridgeShare.startServer());
 }
@@ -154,6 +180,7 @@ function render(nextState) {
   if (state.license) {
     licenseState = state.license;
     licenseSummary.textContent = licenseSummaryText();
+    settingsLicenseSummary.textContent = licenseSummaryText();
   }
   statusEl.textContent = state.running ? "Service running. Phones can scan or open the address below." : "Service stopped";
   toggleServer.textContent = state.running ? "Stop service" : "Start service";
