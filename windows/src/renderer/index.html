@@ -10,8 +10,8 @@
     <section id="licenseGate" class="license-gate">
       <div class="license-panel">
         <p class="eyebrow">BRIDGE SHARE LICENSE</p>
-        <h1>Activate this computer</h1>
-        <p class="muted">Send this machine code to the software provider, then paste the registration code here.</p>
+        <h1 id="licenseTitle">Start trial or activate</h1>
+        <p id="licenseIntro" class="muted">Use a free 7-day trial on this computer, or activate with a registration code.</p>
         <label class="license-label" for="machineCode">Machine code</label>
         <div class="machine-row">
           <code id="machineCode">Loading...</code>
@@ -21,6 +21,7 @@
         <textarea id="licenseInput" spellcheck="false" placeholder="Paste registration code"></textarea>
         <div class="actions">
           <button id="activateLicense">Activate</button>
+          <button id="startTrial" class="ghost">Start 7-day trial</button>
         </div>
         <p id="licenseMessage" class="license-message"></p>
       </div>
@@ -33,7 +34,11 @@
           <h1>Bridge Share</h1>
           <span id="licenseSummary">Open on Windows, let phones scan the QR code, and share files on the same local network.</span>
         </div>
-        <button id="quickStart">Start sharing</button>
+        <div class="hero-actions">
+          <button id="quickStart">Start sharing</button>
+          <button id="reRegister" class="ghost">Register again</button>
+          <button id="removeRegistration" class="ghost danger">Remove registration</button>
+        </div>
       </section>
 
       <section class="dashboard">

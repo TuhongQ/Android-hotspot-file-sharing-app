@@ -18,20 +18,26 @@ jwIDAQAB
 class LicenseManager {
   constructor(userDataPath) {
     this.licensePath = path.join(userDataPath, "license.json");
+    this.trialPath = path.join(userDataPath, "trial.json");
     this.machineCode = createMachineCode();
   }
 
   state() {
     const savedKey = this.readSavedKey();
     const result = savedKey ? verifyLicenseKey(savedKey, this.machineCode) : { valid: false, reason: "Not activated" };
+    const trial = this.trialState();
+    const licensed = result.valid;
     return {
       machineCode: this.machineCode,
-      valid: result.valid,
+      valid: licensed,
+      canUse: licensed || trial.active,
+      mode: licensed ? "licensed" : (trial.active ? "trial" : "locked"),
       reason: result.reason || "",
       customer: result.payload?.customer || "",
       expiresAt: result.payload?.expiresAt || "",
       activatedAt: result.payload?.issuedAt || "",
-      licenseKey: savedKey || ""
+      licenseKey: savedKey || "",
+      trial
     };
   }
 
@@ -55,8 +61,21 @@ class LicenseManager {
     return this.state();
   }
 
-  isValid() {
-    return this.state().valid;
+  startTrial() {
+    const trial = this.trialState();
+    if (trial.started) return this.state();
+    const now = Date.now();
+    const nextTrial = {
+      startedAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString()
+    };
+    fs.mkdirSync(path.dirname(this.trialPath), { recursive: true });
+    fs.writeFileSync(this.trialPath, JSON.stringify(nextTrial, null, 2));
+    return this.state();
+  }
+
+  canUse() {
+    return this.state().canUse;
   }
 
   readSavedKey() {
@@ -69,15 +88,54 @@ class LicenseManager {
   }
 
   stateWithResult(result) {
+    const trial = this.trialState();
     return {
       machineCode: this.machineCode,
       valid: false,
+      canUse: trial.active,
+      mode: trial.active ? "trial" : "locked",
       reason: result.reason || "Invalid license",
       customer: "",
       expiresAt: "",
       activatedAt: "",
-      licenseKey: ""
+      licenseKey: "",
+      trial
     };
+  }
+
+  trialState() {
+    const trial = this.readTrial();
+    if (!trial?.startedAt || !trial?.expiresAt) {
+      return {
+        started: false,
+        active: false,
+        expired: false,
+        canStart: true,
+        startedAt: "",
+        expiresAt: "",
+        daysRemaining: 0
+      };
+    }
+    const expiresAt = new Date(trial.expiresAt).getTime();
+    const remainingMs = expiresAt - Date.now();
+    const active = remainingMs > 0;
+    return {
+      started: true,
+      active,
+      expired: !active,
+      canStart: false,
+      startedAt: trial.startedAt,
+      expiresAt: trial.expiresAt,
+      daysRemaining: active ? Math.max(1, Math.ceil(remainingMs / (24 * 60 * 60 * 1000))) : 0
+    };
+  }
+
+  readTrial() {
+    try {
+      return JSON.parse(fs.readFileSync(this.trialPath, "utf8"));
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -86,7 +144,7 @@ function verifyLicenseKey(licenseKey, machineCode) {
     const cleanKey = normalizeLicenseKey(licenseKey);
     const parts = cleanKey.split(".");
     if (parts.length !== 3 || parts[0] !== LICENSE_VERSION) {
-      return { valid: false, reason: "注册码格式不正确" };
+      return { valid: false, reason: "Invalid registration code format" };
     }
 
     const payloadText = Buffer.from(parts[1], "base64url").toString("utf8");
@@ -97,17 +155,17 @@ function verifyLicenseKey(licenseKey, machineCode) {
     verifier.end();
 
     if (!verifier.verify(PUBLIC_KEY, signature)) {
-      return { valid: false, reason: "注册码签名无效" };
+      return { valid: false, reason: "Invalid registration code signature" };
     }
     if (payload.machineCode !== machineCode) {
-      return { valid: false, reason: "注册码不属于这台电脑" };
+      return { valid: false, reason: "This registration code belongs to another computer" };
     }
     if (payload.expiresAt && new Date(payload.expiresAt).getTime() < Date.now()) {
-      return { valid: false, reason: "注册码已过期" };
+      return { valid: false, reason: "This registration code has expired" };
     }
     return { valid: true, payload };
   } catch {
-    return { valid: false, reason: "注册码无法解析" };
+    return { valid: false, reason: "Registration code could not be parsed" };
   }
 }
 

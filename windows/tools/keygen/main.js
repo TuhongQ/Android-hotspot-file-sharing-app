@@ -38,7 +38,7 @@ ipcMain.handle("copyText", async (_event, text) => {
 
 function generateLicense(input) {
   const machineCode = normalizeMachineCode(input.machineCode);
-  if (!machineCode) return { ok: false, message: "请输入客户机器码" };
+  if (!machineCode) return { ok: false, message: "Enter the customer's machine code" };
 
   const privateKey = readPrivateKey();
   if (!privateKey.ok) return privateKey;
@@ -50,7 +50,7 @@ function generateLicense(input) {
     expiresAt: normalizeExpiry(input.expiresAt)
   };
 
-  if (payload.expiresAt === null) return { ok: false, message: "到期时间格式不正确，请使用 YYYY-MM-DD 或选择永久授权" };
+  if (payload.expiresAt === null) return { ok: false, message: "Invalid expiration date. Use YYYY-MM-DD or choose a permanent license." };
 
   const payloadPart = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
   const signer = crypto.createSign("RSA-SHA256");
@@ -97,6 +97,6 @@ function readPrivateKey() {
 
   return {
     ok: false,
-    message: "没有找到私钥文件 license-private-key.pem，无法生成注册码"
+    message: "Private key file license-private-key.pem was not found. A registration code cannot be generated."
   };
 }

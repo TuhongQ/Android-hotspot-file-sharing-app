@@ -31,7 +31,7 @@ function createWindow() {
     }
   });
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
-  buildMenu();
+  Menu.setApplicationMenu(null);
 }
 
 app.whenReady().then(() => {
@@ -94,7 +94,7 @@ ipcMain.handle("openExternal", async (_event, url) => {
   await shell.openExternal(url);
 });
 
-ipcMain.handle("clients", async () => FileHubServer.connectedClients());
+ipcMain.handle("clients", async () => requireLicense() ? FileHubServer.connectedClients() : []);
 
 ipcMain.handle("chooseSendFiles", async () => {
   if (!requireLicense()) return [];
@@ -110,68 +110,23 @@ ipcMain.handle("pushFile", async (_event, clientId, filePath) => {
   return FileHubServer.pushFileToClient(clientId, filePath);
 });
 
-ipcMain.handle("offerProgress", async (_event, offerId) => FileHubServer.offerProgress(offerId));
+ipcMain.handle("offerProgress", async (_event, offerId) => requireLicense() ? FileHubServer.offerProgress(offerId) : { started: false, completed: true, sent: 0, total: 0 });
 
 ipcMain.handle("licenseState", async () => licenseManager.state());
 
 ipcMain.handle("activateLicense", async (_event, licenseKey) => licenseManager.activate(licenseKey));
 
+ipcMain.handle("startTrial", async () => licenseManager.startTrial());
+
+ipcMain.handle("clearLicense", async () => {
+  stopServer();
+  return licenseManager.clear();
+});
+
 ipcMain.handle("copyMachineCode", async () => {
   clipboard.writeText(licenseManager.state().machineCode);
   return true;
 });
-
-function buildMenu() {
-  const template = [
-    {
-      label: "授权",
-      submenu: [
-        {
-          label: "重新注册",
-          click: () => showLicenseGate("请输入新的注册码。")
-        },
-        {
-          label: "移除注册",
-          click: async () => {
-            const result = await dialog.showMessageBox(mainWindow, {
-              type: "warning",
-              buttons: ["移除注册", "取消"],
-              defaultId: 1,
-              cancelId: 1,
-              title: "移除注册",
-              message: "确定要移除当前注册码吗？",
-              detail: "移除后共享服务会停止，需要重新输入注册码才能继续使用。"
-            });
-            if (result.response !== 0) return;
-            stopServer();
-            const nextState = licenseManager.clear();
-            showLicenseGate("注册码已移除，请重新注册。", nextState);
-          }
-        },
-        { type: "separator" },
-        {
-          label: "复制机器码",
-          click: () => clipboard.writeText(licenseManager.state().machineCode)
-        }
-      ]
-    },
-    {
-      label: "查看",
-      submenu: [
-        { role: "reload", label: "刷新" },
-        { role: "toggleDevTools", label: "开发者工具" }
-      ]
-    }
-  ];
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-}
-
-function showLicenseGate(message, nextLicenseState = licenseManager.state()) {
-  if (server) stopServer();
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("showLicenseGate", { license: nextLicenseState, message });
-  }
-}
 
 function startServer() {
   if (server || folders.length === 0 || !requireLicense()) return;
@@ -191,6 +146,7 @@ function restartServer() {
 }
 
 async function buildState() {
+  if (!licenseManager.canUse()) stopServer();
   const urls = lanUrls().map((ip) => `http://${ip}:${port}/`);
   const qr = urls[0] ? await QRCode.toDataURL(urls[0], { margin: 1, width: 280 }) : "";
   return {
@@ -203,7 +159,7 @@ async function buildState() {
 }
 
 function requireLicense() {
-  if (licenseManager?.isValid()) return true;
+  if (licenseManager?.canUse()) return true;
   if (server) stopServer();
   return false;
 }

@@ -3,9 +3,12 @@ let licenseState = null;
 
 const licenseGate = document.getElementById("licenseGate");
 const appShell = document.getElementById("appShell");
+const licenseTitle = document.getElementById("licenseTitle");
+const licenseIntro = document.getElementById("licenseIntro");
 const machineCodeEl = document.getElementById("machineCode");
 const licenseInput = document.getElementById("licenseInput");
 const activateLicense = document.getElementById("activateLicense");
+const startTrial = document.getElementById("startTrial");
 const copyMachineCode = document.getElementById("copyMachineCode");
 const licenseMessage = document.getElementById("licenseMessage");
 const licenseSummary = document.getElementById("licenseSummary");
@@ -15,6 +18,8 @@ const urlsEl = document.getElementById("urls");
 const qrEl = document.getElementById("qr");
 const toggleServer = document.getElementById("toggleServer");
 const quickStart = document.getElementById("quickStart");
+const reRegister = document.getElementById("reRegister");
+const removeRegistration = document.getElementById("removeRegistration");
 const clientsEl = document.getElementById("clients");
 const dropZone = document.getElementById("dropZone");
 const chooseSendFiles = document.getElementById("chooseSendFiles");
@@ -22,15 +27,26 @@ const sendProgress = document.getElementById("sendProgress");
 let clients = [];
 
 activateLicense.addEventListener("click", activate);
+startTrial.addEventListener("click", beginTrial);
 copyMachineCode.addEventListener("click", async () => {
   await window.bridgeShare.copyMachineCode();
   licenseMessage.textContent = "Machine code copied.";
   licenseMessage.classList.add("ok");
 });
-window.bridgeShare.onShowLicenseGate(async ({ license, message } = {}) => {
+reRegister.addEventListener("click", async () => {
   licenseInput.value = "";
-  renderLicense(license || await window.bridgeShare.licenseState(), { forceGate: true, message });
-  render(await window.bridgeShare.state());
+  renderLicense(await window.bridgeShare.licenseState(), { forceGate: true, message: "Paste a new registration code to update this computer." });
+});
+removeRegistration.addEventListener("click", async () => {
+  if (!confirm("Remove the saved registration code from this computer?")) return;
+  const nextLicense = await window.bridgeShare.clearLicense();
+  licenseInput.value = "";
+  if (nextLicense.canUse) {
+    renderLicense(nextLicense);
+    render(await window.bridgeShare.state());
+    return;
+  }
+  renderLicense(nextLicense, { forceGate: true, message: "Registration removed. Start a trial or activate again to continue." });
 });
 document.getElementById("addFolders").addEventListener("click", async () => render(await window.bridgeShare.chooseFolders()));
 document.getElementById("clearFolders").addEventListener("click", async () => render(await window.bridgeShare.clearFolders()));
@@ -61,7 +77,7 @@ setInterval(refreshClients, 2000);
 async function init() {
   licenseState = await window.bridgeShare.licenseState();
   renderLicense(licenseState);
-  if (!licenseState.valid) return;
+  if (!licenseState.canUse) return;
   render(await window.bridgeShare.state());
   refreshClients();
 }
@@ -72,7 +88,18 @@ async function activate() {
   const result = await window.bridgeShare.activateLicense(licenseInput.value);
   licenseState = result;
   renderLicense(result);
-  if (result.valid) {
+  if (result.canUse) {
+    render(await window.bridgeShare.state());
+    refreshClients();
+  }
+}
+
+async function beginTrial() {
+  licenseMessage.textContent = "Starting trial...";
+  licenseMessage.classList.remove("ok");
+  const result = await window.bridgeShare.startTrial();
+  renderLicense(result);
+  if (result.canUse) {
     render(await window.bridgeShare.state());
     refreshClients();
   }
@@ -81,19 +108,41 @@ async function activate() {
 function renderLicense(nextLicense, options = {}) {
   licenseState = nextLicense;
   machineCodeEl.textContent = licenseState.machineCode;
-  if (licenseState.valid && !options.forceGate) {
+  updateTrialButton();
+  if (licenseState.canUse && !options.forceGate) {
     licenseGate.classList.add("hidden");
     appShell.classList.remove("app-hidden");
-    const expiry = licenseState.expiresAt ? `Expires ${new Date(licenseState.expiresAt).toLocaleDateString()}` : "Permanent license";
-    licenseSummary.textContent = `${licenseState.customer || "Licensed user"} · ${expiry}`;
-    licenseMessage.textContent = "Activated successfully.";
+    licenseSummary.textContent = licenseSummaryText();
+    reRegister.textContent = licenseState.valid ? "Register again" : "Register";
+    removeRegistration.style.display = licenseState.valid ? "inline-flex" : "none";
+    licenseMessage.textContent = licenseState.valid ? "Activated successfully." : "Trial started.";
     licenseMessage.classList.add("ok");
     return;
   }
   licenseGate.classList.remove("hidden");
   appShell.classList.add("app-hidden");
+  licenseTitle.textContent = licenseState.trial?.expired ? "Trial expired" : "Start trial or activate";
+  licenseIntro.textContent = licenseState.trial?.expired
+    ? "Your free trial has ended. Enter a registration code to continue using Bridge Share."
+    : "Use a free 7-day trial on this computer, or activate with a registration code.";
   licenseMessage.textContent = options.message || licenseState.reason || "";
   licenseMessage.classList.remove("ok");
+}
+
+function updateTrialButton() {
+  const canStartTrial = Boolean(licenseState.trial?.canStart);
+  startTrial.style.display = canStartTrial ? "inline-flex" : "none";
+}
+
+function licenseSummaryText() {
+  if (licenseState.valid) {
+    const expiry = licenseState.expiresAt ? `Expires ${new Date(licenseState.expiresAt).toLocaleDateString()}` : "Permanent license";
+    return `${licenseState.customer || "Licensed user"} · ${expiry}`;
+  }
+  if (licenseState.trial?.active) {
+    return `Free trial · ${licenseState.trial.daysRemaining} day${licenseState.trial.daysRemaining === 1 ? "" : "s"} remaining`;
+  }
+  return "Registration required";
 }
 
 async function toggle() {
@@ -102,6 +151,10 @@ async function toggle() {
 
 function render(nextState) {
   state = nextState;
+  if (state.license) {
+    licenseState = state.license;
+    licenseSummary.textContent = licenseSummaryText();
+  }
   statusEl.textContent = state.running ? "Service running. Phones can scan or open the address below." : "Service stopped";
   toggleServer.textContent = state.running ? "Stop service" : "Start service";
   quickStart.textContent = state.running ? "Sharing is active" : "Start sharing";
@@ -138,7 +191,7 @@ function render(nextState) {
 }
 
 async function refreshClients() {
-  if (!licenseState?.valid) return;
+  if (!licenseState?.canUse) return;
   clients = await window.bridgeShare.clients();
   clientsEl.innerHTML = "";
   if (!clients.length) {

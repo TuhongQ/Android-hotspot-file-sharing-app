@@ -14,8 +14,7 @@ contextBridge.exposeInMainWorld("bridgeShare", {
   offerProgress: (offerId) => ipcRenderer.invoke("offerProgress", offerId),
   licenseState: () => ipcRenderer.invoke("licenseState"),
   activateLicense: (licenseKey) => ipcRenderer.invoke("activateLicense", licenseKey),
+  startTrial: () => ipcRenderer.invoke("startTrial"),
+  clearLicense: () => ipcRenderer.invoke("clearLicense"),
   copyMachineCode: () => ipcRenderer.invoke("copyMachineCode"),
-  onShowLicenseGate: (callback) => {
-    ipcRenderer.on("showLicenseGate", (_event, payload) => callback(payload));
-  }
 });

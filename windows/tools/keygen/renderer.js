@@ -46,11 +46,11 @@ document.addEventListener("keydown", (event) => {
 
 generate.addEventListener("click", async () => {
   if (!permanent.checked && !expiresAt.value) {
-    message.textContent = "请选择到期日期，或勾选永久授权";
+    message.textContent = "Choose an expiration date or enable permanent license.";
     message.className = "error";
     return;
   }
-  message.textContent = "正在生成...";
+  message.textContent = "Generating...";
   message.className = "";
   const result = await window.bridgeKeygen.generateLicense({
     machineCode: machineCode.value,
@@ -66,18 +66,18 @@ generate.addEventListener("click", async () => {
   }
 
   licenseKey.value = result.licenseKey;
-  message.textContent = result.payload.expiresAt ? `已生成，到期：${new Date(result.payload.expiresAt).toLocaleDateString()}` : "已生成，永久授权";
+  message.textContent = result.payload.expiresAt ? `Generated. Expires: ${new Date(result.payload.expiresAt).toLocaleDateString()}` : "Generated. Permanent license.";
   message.className = "ok";
 });
 
 copy.addEventListener("click", async () => {
   if (!licenseKey.value) {
-    message.textContent = "还没有注册码可复制";
+    message.textContent = "There is no registration code to copy yet.";
     message.className = "error";
     return;
   }
   await window.bridgeKeygen.copyText(licenseKey.value);
-  message.textContent = "注册码已复制";
+  message.textContent = "Registration code copied.";
   message.className = "ok";
 });
 
@@ -99,12 +99,12 @@ function closeDateDialog() {
 
 function updateExpiryPreview() {
   if (permanent.checked) {
-    pickDate.textContent = "选择到期日期";
-    expiryPreview.textContent = "当前：永久授权";
+    pickDate.textContent = "Choose expiration date";
+    expiryPreview.textContent = "Current: permanent license";
     return;
   }
-  pickDate.textContent = expiresAt.value ? `到期：${formatDate(expiresAt.value)}` : "选择到期日期";
-  expiryPreview.textContent = expiresAt.value ? `当前到期日期：${formatDate(expiresAt.value)}` : "当前：未选择到期日期";
+  pickDate.textContent = expiresAt.value ? `Expires: ${formatDate(expiresAt.value)}` : "Choose expiration date";
+  expiryPreview.textContent = expiresAt.value ? `Current expiration date: ${formatDate(expiresAt.value)}` : "Current: no expiration date selected";
 }
 
 function today() {

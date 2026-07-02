@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,39 +10,39 @@
     <main class="shell">
       <section class="hero">
         <p>BRIDGE SHARE KEYGEN</p>
-        <h1>注册码生成器</h1>
+        <h1>License Keygen</h1>
       </section>
 
       <section class="panel">
-        <label for="machineCode">客户机器码</label>
-        <input id="machineCode" placeholder="例如 ABCDEF-123456-789ABC-DEF123-456789" />
+        <label for="machineCode">Customer machine code</label>
+        <input id="machineCode" placeholder="Example: ABCDEF-123456-789ABC-DEF123-456789" />
 
-        <label for="customer">客户名称</label>
-        <input id="customer" placeholder="例如 张三 / 公司名称" />
+        <label for="customer">Customer name</label>
+        <input id="customer" placeholder="Example: Customer or company name" />
 
         <div class="split">
           <div>
-            <label>授权期限</label>
-            <button id="pickDate" class="date-button" type="button">选择到期日期</button>
+            <label>License term</label>
+            <button id="pickDate" class="date-button" type="button">Choose expiration date</button>
             <input id="expiresAt" type="hidden" />
           </div>
           <label class="check">
             <input id="permanent" type="checkbox" checked />
-            <span>永久授权</span>
+            <span>Permanent license</span>
           </label>
         </div>
-        <p id="expiryPreview" class="expiry-preview">当前：永久授权</p>
+        <p id="expiryPreview" class="expiry-preview">Current: permanent license</p>
 
         <div class="actions">
-          <button id="generate">生成注册码</button>
-          <button id="clear" class="ghost">清空</button>
+          <button id="generate">Generate code</button>
+          <button id="clear" class="ghost">Clear</button>
         </div>
 
-        <label for="licenseKey">注册码</label>
-        <textarea id="licenseKey" readonly placeholder="生成结果会显示在这里"></textarea>
+        <label for="licenseKey">Registration code</label>
+        <textarea id="licenseKey" readonly placeholder="Generated code will appear here"></textarea>
 
         <div class="actions">
-          <button id="copy">复制注册码</button>
+          <button id="copy">Copy code</button>
         </div>
         <p id="message"></p>
       </section>
@@ -50,11 +50,11 @@
 
     <div id="dateDialog" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-panel">
-        <h2>选择到期日期</h2>
+        <h2>Choose expiration date</h2>
         <input id="modalDate" type="date" />
         <div class="actions modal-actions">
-          <button id="confirmDate" type="button">确定</button>
-          <button id="cancelDate" class="ghost" type="button">取消</button>
+          <button id="confirmDate" type="button">Apply</button>
+          <button id="cancelDate" class="ghost" type="button">Cancel</button>
         </div>
       </div>
     </div>
