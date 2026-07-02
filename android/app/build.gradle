@@ -1,0 +1,58 @@
+plugins {
+    id "com.android.application"
+}
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("app/keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
+android {
+    namespace "cn.local.bridgeshare"
+    compileSdk 35
+
+    signingConfigs {
+        release {
+            storeFile file(keystoreProperties.getProperty("storeFile", "bridge-share-release.jks"))
+            storePassword keystoreProperties.getProperty("storePassword", System.getenv("BRIDGE_SHARE_STORE_PASSWORD") ?: "")
+            keyAlias keystoreProperties.getProperty("keyAlias", System.getenv("BRIDGE_SHARE_KEY_ALIAS") ?: "bridge-share")
+            keyPassword keystoreProperties.getProperty("keyPassword", System.getenv("BRIDGE_SHARE_KEY_PASSWORD") ?: "")
+        }
+        upgrade {
+            storeFile file(System.getProperty("user.home") + "/.android/debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+
+    defaultConfig {
+        applicationId "cn.local.bridgeshare"
+        minSdk 26
+        targetSdk 35
+        versionCode 11
+        versionName "1.4.0"
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            shrinkResources false
+        }
+        upgrade {
+            initWith release
+            matchingFallbacks = ["release"]
+            signingConfig signingConfigs.upgrade
+            debuggable false
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+}
+
+dependencies {
+    implementation "androidx.documentfile:documentfile:1.0.1"
+    implementation "com.google.zxing:core:3.5.3"
+}
