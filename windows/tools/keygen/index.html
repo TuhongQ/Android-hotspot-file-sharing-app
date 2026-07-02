@@ -11,7 +11,6 @@
       <section class="hero">
         <p>BRIDGE SHARE KEYGEN</p>
         <h1>注册码生成器</h1>
-        <span>输入客户机器码，生成一机一码授权。</span>
       </section>
 
       <section class="panel">
@@ -23,14 +22,16 @@
 
         <div class="split">
           <div>
-            <label for="expiresAt">到期日期</label>
-            <input id="expiresAt" type="date" />
+            <label>授权期限</label>
+            <button id="pickDate" class="date-button" type="button">选择到期日期</button>
+            <input id="expiresAt" type="hidden" />
           </div>
           <label class="check">
             <input id="permanent" type="checkbox" checked />
             <span>永久授权</span>
           </label>
         </div>
+        <p id="expiryPreview" class="expiry-preview">当前：永久授权</p>
 
         <div class="actions">
           <button id="generate">生成注册码</button>
@@ -46,6 +47,17 @@
         <p id="message"></p>
       </section>
     </main>
+
+    <div id="dateDialog" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-panel">
+        <h2>选择到期日期</h2>
+        <input id="modalDate" type="date" />
+        <div class="actions modal-actions">
+          <button id="confirmDate" type="button">确定</button>
+          <button id="cancelDate" class="ghost" type="button">取消</button>
+        </div>
+      </div>
+    </div>
     <script src="./renderer.js"></script>
   </body>
 </html>

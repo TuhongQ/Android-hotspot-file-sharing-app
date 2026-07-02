@@ -2,6 +2,12 @@ const machineCode = document.getElementById("machineCode");
 const customer = document.getElementById("customer");
 const expiresAt = document.getElementById("expiresAt");
 const permanent = document.getElementById("permanent");
+const pickDate = document.getElementById("pickDate");
+const expiryPreview = document.getElementById("expiryPreview");
+const dateDialog = document.getElementById("dateDialog");
+const modalDate = document.getElementById("modalDate");
+const confirmDate = document.getElementById("confirmDate");
+const cancelDate = document.getElementById("cancelDate");
 const licenseKey = document.getElementById("licenseKey");
 const message = document.getElementById("message");
 const generate = document.getElementById("generate");
@@ -9,11 +15,41 @@ const copy = document.getElementById("copy");
 const clear = document.getElementById("clear");
 
 permanent.addEventListener("change", () => {
-  expiresAt.disabled = permanent.checked;
   if (permanent.checked) expiresAt.value = "";
+  updateExpiryPreview();
+});
+
+pickDate.addEventListener("click", () => {
+  permanent.checked = false;
+  modalDate.value = expiresAt.value || today();
+  dateDialog.classList.remove("hidden");
+  modalDate.focus();
+  updateExpiryPreview();
+});
+
+confirmDate.addEventListener("click", () => {
+  if (!modalDate.value) return;
+  permanent.checked = false;
+  expiresAt.value = modalDate.value;
+  dateDialog.classList.add("hidden");
+  updateExpiryPreview();
+});
+
+cancelDate.addEventListener("click", closeDateDialog);
+dateDialog.addEventListener("click", (event) => {
+  if (event.target === dateDialog) closeDateDialog();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeDateDialog();
 });
 
 generate.addEventListener("click", async () => {
+  if (!permanent.checked && !expiresAt.value) {
+    message.textContent = "请选择到期日期，或勾选永久授权";
+    message.className = "error";
+    return;
+  }
   message.textContent = "正在生成...";
   message.className = "";
   const result = await window.bridgeKeygen.generateLicense({
@@ -50,12 +86,25 @@ clear.addEventListener("click", () => {
   customer.value = "";
   expiresAt.value = "";
   permanent.checked = true;
-  expiresAt.disabled = true;
+  updateExpiryPreview();
   licenseKey.value = "";
   message.textContent = "";
   message.className = "";
   machineCode.focus();
 });
 
-expiresAt.disabled = true;
+function closeDateDialog() {
+  dateDialog.classList.add("hidden");
+}
+
+function updateExpiryPreview() {
+  pickDate.disabled = permanent.checked;
+  expiryPreview.textContent = permanent.checked ? "当前：永久授权" : `当前：${expiresAt.value || "未选择到期日期"}`;
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+updateExpiryPreview();
 machineCode.focus();
