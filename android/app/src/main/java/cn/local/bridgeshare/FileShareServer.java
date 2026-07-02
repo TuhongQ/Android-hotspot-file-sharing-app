@@ -29,6 +29,7 @@ import java.util.concurrent.Executors;
 public class FileShareServer {
     private static final Map<String, ClientConnection> CLIENTS = new ConcurrentHashMap<>();
     private static final Map<String, SharedOffer> OFFERS = new ConcurrentHashMap<>();
+    private static final UploadProgress CURRENT_UPLOAD = new UploadProgress();
     private final Context context;
     private final List<SharedRoot> roots;
     private final int port;
@@ -215,8 +216,10 @@ public class FileShareServer {
             return;
         }
 
-        byte[] body = readBytes(input, contentLength);
+        CURRENT_UPLOAD.start(contentLength);
+        byte[] body = readBytes(input, contentLength, CURRENT_UPLOAD);
         int saved = saveMultipartFiles(directory, body, boundary);
+        CURRENT_UPLOAD.finish(saved);
         String location = "/browse?r=" + rootIndex + "&path=" + encode(relativePath);
         if ("XMLHttpRequest".equalsIgnoreCase(request.headers.get("x-requested-with"))) {
             writeText(output, 200, "application/json; charset=utf-8", "{\"ok\":true,\"saved\":" + saved + ",\"redirect\":\"" + escapeJson(location) + "\"}");
@@ -338,9 +341,16 @@ public class FileShareServer {
             } else {
                 html.append("<div class=\"swipe\" data-path=\"").append(escape(childPath)).append("\"><button class=\"deleteBtn\" data-delete=\"/delete?r=").append(rootIndex).append("&path=").append(encodedChild).append("\">删除</button>")
                         .append("<div class=\"item swipeContent\">");
-                if (isImage(file)) {
+                String previewKind = previewKind(file);
+                if (previewKind != null) {
                     String raw = "/raw?r=" + rootIndex + "&path=" + encodedChild;
-                    html.append("<img class=\"thumb\" src=\"").append(raw).append("\" data-full=\"").append(raw).append("\" alt=\"\">");
+                    if ("image".equals(previewKind)) {
+                        html.append("<img class=\"thumb previewTrigger\" src=\"").append(raw).append("\" data-preview=\"").append(raw).append("\" data-kind=\"image\" alt=\"\">");
+                    } else {
+                        html.append("<button class=\"thumb mediaThumb previewTrigger\" data-preview=\"").append(raw).append("\" data-kind=\"").append(previewKind).append("\">")
+                                .append(previewKind.toUpperCase(Locale.ROOT))
+                                .append("</button>");
+                    }
                 }
                 html.append("<b>")
                         .append(escape(fileName))
@@ -355,7 +365,7 @@ public class FileShareServer {
         }
 
         appendProgressDialog(html);
-        appendImagePreview(html);
+        appendMediaPreview(html);
         appendPushDialog(html);
         appendPageScript(html);
         appendClientScript(html);
@@ -378,7 +388,7 @@ public class FileShareServer {
                 .append(".item{display:flex;align-items:center;gap:10px;background:#111827;border:1px solid #334155;border-radius:14px;padding:15px;margin:10px 0;color:#e5e7eb;text-decoration:none}")
                 .append(".item b{flex:1;min-width:0;overflow-wrap:anywhere}.item span,.item small{color:#94a3b8}.item a,a{color:#22d3ee;font-weight:900;text-decoration:none}.link:active{background:#0f766e}")
                 .append(".swipe{position:relative;overflow:hidden;border-radius:14px;margin:10px 0}.swipe .item{margin:0;transition:transform .18s ease;will-change:transform}.deleteBtn{position:absolute;right:0;top:0;bottom:0;width:86px;height:auto;border-radius:0 14px 14px 0;background:#ef4444;color:white;z-index:0}.swipeContent{position:relative;z-index:1}.folderIcon{display:grid;place-items:center;width:58px;height:58px;border-radius:13px;background:#0f766e;color:#ccfbf1;font-size:12px;font-weight:900}")
-                .append(".thumb{width:68px;height:68px;border-radius:14px;object-fit:cover;background:#020617;border:1px solid #334155;flex:0 0 auto}")
+                .append(".thumb{width:68px;height:68px;border-radius:14px;object-fit:cover;background:#020617;border:1px solid #334155;flex:0 0 auto}.mediaThumb{color:#67e8f9;font-size:11px;font-weight:900;padding:0}")
                 .append("form{display:grid;gap:13px;min-width:0}form strong{font-size:19px;color:#f9fafb}form span{color:#94a3b8}")
                 .append(".filePick{display:block;box-sizing:border-box;width:100%;max-width:100%;min-width:0;padding:14px;border:1px dashed #22d3ee;border-radius:16px;background:#020617;overflow:hidden}")
                 .append(".filePick input{display:block;box-sizing:border-box;width:100%;max-width:100%;min-width:0;color:#e5e7eb;font-size:15px}")
@@ -388,7 +398,7 @@ public class FileShareServer {
                 .append(".overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.72);backdrop-filter:blur(8px);padding:20px;z-index:9}")
                 .append(".dialog{width:min(360px,100%);background:#101826;border:1px solid #22d3ee;border-radius:20px;padding:20px;box-shadow:0 24px 70px rgba(0,0,0,.45)}")
                 .append(".dialog h3{margin:0 0 8px;color:#f9fafb}.dialog p{margin:0 0 14px;color:#94a3b8}.bar{height:14px;background:#020617;border-radius:999px;overflow:hidden;border:1px solid #164e63}.fill{height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#14b8a6)}.pct{margin-top:10px;color:#67e8f9;font-weight:900;text-align:right}")
-                .append(".preview{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.9);z-index:10;padding:18px}.preview img{max-width:100%;max-height:88vh;border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.55)}.preview button{position:absolute;top:18px;right:18px;width:48px;height:48px;border-radius:50%;background:#111827;color:#e5e7eb}")
+                .append(".preview{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.9);z-index:10;padding:18px}.previewBody{width:min(920px,100%);max-height:88vh;display:grid;place-items:center}.preview img,.preview video,.preview audio,.preview iframe{max-width:100%;max-height:88vh;border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.55);background:#020617}.preview video{width:100%}.preview iframe{width:100%;height:82vh;border:0}.preview button{position:absolute;top:18px;right:18px;width:48px;height:48px;border-radius:50%;background:#111827;color:#e5e7eb}")
                 .append(".pushActions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pushActions a,.pushActions button{display:grid;place-items:center;height:50px;border-radius:14px;font-size:16px}.pushActions .cancel{background:#1f2937;color:#e5e7eb}")
                 .append("</style></head><body><main>");
     }
@@ -397,8 +407,8 @@ public class FileShareServer {
         html.append("<div class=\"overlay\" id=\"progressOverlay\"><div class=\"dialog\"><h3>正在上传</h3><p id=\"progressText\">准备传输文件...</p><div class=\"bar\"><div class=\"fill\" id=\"progressFill\"></div></div><div class=\"pct\" id=\"progressPct\">0%</div></div></div>");
     }
 
-    private void appendImagePreview(StringBuilder html) {
-        html.append("<div class=\"preview\" id=\"imagePreview\"><button id=\"closePreview\">X</button><img id=\"previewImage\" alt=\"\"></div>");
+    private void appendMediaPreview(StringBuilder html) {
+        html.append("<div class=\"preview\" id=\"mediaPreview\"><button id=\"closePreview\">X</button><div class=\"previewBody\" id=\"previewBody\"></div></div>");
     }
 
     private void appendPushDialog(StringBuilder html) {
@@ -423,7 +433,7 @@ public class FileShareServer {
                 .append("row.addEventListener('touchmove',function(e){current=e.touches[0].clientX-startX;if(current<0){content.style.transform='translateX('+Math.max(current,-86)+'px)';}},{passive:true});")
                 .append("row.addEventListener('touchend',function(){content.style.transform=current<-42?'translateX(-86px)':'translateX(0)';});")
                 .append("del.addEventListener('click',function(){if(!confirm('确定删除这个项目吗？'))return;fetch(del.dataset.delete,{method:'POST',headers:{'X-Requested-With':'XMLHttpRequest'}}).then(function(r){if(!r.ok)throw new Error();row.remove();}).catch(function(){alert('删除失败');content.style.transform='translateX(0)';});});});})();")
-                .append("(function(){var modal=document.getElementById('imagePreview'),img=document.getElementById('previewImage'),close=document.getElementById('closePreview');document.querySelectorAll('.thumb').forEach(function(t){t.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();img.src=t.dataset.full;modal.style.display='flex';});});close&&close.addEventListener('click',function(){modal.style.display='none';img.src='';});modal&&modal.addEventListener('click',function(e){if(e.target===modal){modal.style.display='none';img.src='';}});})();")
+                .append("(function(){var modal=document.getElementById('mediaPreview'),body=document.getElementById('previewBody'),close=document.getElementById('closePreview');function hide(){modal.style.display='none';body.innerHTML='';}document.querySelectorAll('.previewTrigger').forEach(function(t){t.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var url=t.dataset.preview,kind=t.dataset.kind;body.innerHTML='';var el;if(kind==='image'){el=document.createElement('img');el.alt='';el.src=url;}else if(kind==='video'){el=document.createElement('video');el.controls=true;el.autoplay=true;el.src=url;}else if(kind==='audio'){el=document.createElement('audio');el.controls=true;el.autoplay=true;el.src=url;}else{el=document.createElement('iframe');el.src=url;}body.appendChild(el);modal.style.display='flex';});});close&&close.addEventListener('click',hide);modal&&modal.addEventListener('click',function(e){if(e.target===modal)hide();});})();")
                 .append("</script>");
     }
 
@@ -630,6 +640,14 @@ public class FileShareServer {
         return clean.isEmpty() ? "upload.bin" : clean;
     }
 
+    private String previewKind(DocumentFile file) {
+        if (isImage(file)) return "image";
+        if (isVideo(file)) return "video";
+        if (isAudio(file)) return "audio";
+        if (isInlineDocument(file)) return "document";
+        return null;
+    }
+
     private boolean isImage(DocumentFile file) {
         String type = file.getType();
         if (type != null && type.toLowerCase(Locale.ROOT).startsWith("image/")) return true;
@@ -641,10 +659,67 @@ public class FileShareServer {
                 || lower.endsWith(".png")
                 || lower.endsWith(".gif")
                 || lower.endsWith(".webp")
-                || lower.endsWith(".bmp");
+                || lower.endsWith(".bmp")
+                || lower.endsWith(".svg")
+                || lower.endsWith(".avif")
+                || lower.endsWith(".heic")
+                || lower.endsWith(".heif")
+                || lower.endsWith(".tif")
+                || lower.endsWith(".tiff");
+    }
+
+    private boolean isVideo(DocumentFile file) {
+        String type = file.getType();
+        if (type != null && type.toLowerCase(Locale.ROOT).startsWith("video/")) return true;
+        String name = file.getName();
+        if (name == null) return false;
+        String lower = name.toLowerCase(Locale.ROOT);
+        return lower.endsWith(".mp4")
+                || lower.endsWith(".mov")
+                || lower.endsWith(".m4v")
+                || lower.endsWith(".webm")
+                || lower.endsWith(".ogg")
+                || lower.endsWith(".3gp");
+    }
+
+    private boolean isAudio(DocumentFile file) {
+        String type = file.getType();
+        if (type != null && type.toLowerCase(Locale.ROOT).startsWith("audio/")) return true;
+        String name = file.getName();
+        if (name == null) return false;
+        String lower = name.toLowerCase(Locale.ROOT);
+        return lower.endsWith(".mp3")
+                || lower.endsWith(".m4a")
+                || lower.endsWith(".aac")
+                || lower.endsWith(".wav")
+                || lower.endsWith(".ogg")
+                || lower.endsWith(".flac");
+    }
+
+    private boolean isInlineDocument(DocumentFile file) {
+        String type = file.getType();
+        if (type != null) {
+            String lowerType = type.toLowerCase(Locale.ROOT);
+            if (lowerType.equals("application/pdf") || lowerType.startsWith("text/")) return true;
+        }
+        String name = file.getName();
+        if (name == null) return false;
+        String lower = name.toLowerCase(Locale.ROOT);
+        return lower.endsWith(".pdf")
+                || lower.endsWith(".txt")
+                || lower.endsWith(".md")
+                || lower.endsWith(".csv")
+                || lower.endsWith(".json")
+                || lower.endsWith(".xml")
+                || lower.endsWith(".html")
+                || lower.endsWith(".log");
     }
 
     private byte[] readBytes(InputStream input, int length) throws IOException {
+        return readBytes(input, length, null);
+    }
+
+    private byte[] readBytes(InputStream input, int length, UploadProgress progress) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream(length);
         byte[] buffer = new byte[64 * 1024];
         int remaining = length;
@@ -653,8 +728,13 @@ public class FileShareServer {
             if (read < 0) break;
             output.write(buffer, 0, read);
             remaining -= read;
+            if (progress != null) progress.update(length - remaining);
         }
         return output.toByteArray();
+    }
+
+    public static UploadSnapshot uploadProgress() {
+        return CURRENT_UPLOAD.snapshot();
     }
 
     private String readLine(InputStream input) throws IOException {
@@ -836,6 +916,62 @@ public class FileShareServer {
             this.sent = sent;
             this.started = started;
             this.completed = completed;
+        }
+    }
+
+    public static class UploadSnapshot {
+        public final long total;
+        public final long received;
+        public final boolean active;
+        public final boolean completed;
+        public final int saved;
+
+        UploadSnapshot(long total, long received, boolean active, boolean completed, int saved) {
+            this.total = total;
+            this.received = received;
+            this.active = active;
+            this.completed = completed;
+            this.saved = saved;
+        }
+    }
+
+    private static class UploadProgress {
+        private volatile long total;
+        private volatile long received;
+        private volatile long startedAt;
+        private volatile long completedAt;
+        private volatile boolean active;
+        private volatile boolean completed;
+        private volatile int saved;
+
+        synchronized void start(long total) {
+            this.total = total;
+            this.received = 0;
+            this.startedAt = System.currentTimeMillis();
+            this.completedAt = 0;
+            this.active = true;
+            this.completed = false;
+            this.saved = 0;
+        }
+
+        void update(long received) {
+            this.received = received;
+        }
+
+        synchronized void finish(int saved) {
+            this.received = total;
+            this.saved = saved;
+            this.completed = true;
+            this.completedAt = System.currentTimeMillis();
+            this.active = false;
+        }
+
+        UploadSnapshot snapshot() {
+            if (completed && System.currentTimeMillis() - completedAt > 2500) {
+                completed = false;
+                saved = 0;
+            }
+            return new UploadSnapshot(total, received, active, completed, saved);
         }
     }
 

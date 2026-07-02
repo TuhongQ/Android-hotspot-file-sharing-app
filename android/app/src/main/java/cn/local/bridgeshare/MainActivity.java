@@ -3,6 +3,8 @@ package cn.local.bridgeshare;
 import android.app.Activity;
 import android.Manifest;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -22,6 +24,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -49,11 +52,20 @@ public class MainActivity extends Activity {
     private static final String PREF_FOLDERS = "folder_uris";
 
     private final List<Uri> folderUris = new ArrayList<>();
+    private AndroidLicenseManager licenseManager;
     private LinearLayout folderListView;
+    private LinearLayout licenseCard;
+    private TextView licenseStatusView;
+    private TextView machineCodeView;
+    private EditText licenseInputView;
     private TextView statusTitle;
     private TextView statusDetail;
     private TextView addressView;
     private TextView clientView;
+    private LinearLayout uploadProgressCard;
+    private TextView uploadProgressTitle;
+    private TextView uploadProgressDetail;
+    private ProgressBar uploadProgressBar;
     private ImageView qrView;
     private Button serviceButton;
     private boolean serviceRunning;
@@ -61,7 +73,12 @@ public class MainActivity extends Activity {
     private final Runnable clientPoller = new Runnable() {
         @Override
         public void run() {
+            if (serviceRunning && !licenseManager.canUse()) {
+                stopServer();
+                renderLicense();
+            }
             renderClients();
+            renderUploadProgress();
             handler.postDelayed(this, 2000);
         }
     };
@@ -85,6 +102,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(color("#070A12"));
+        licenseManager = new AndroidLicenseManager(this);
         loadFolders();
         buildUi();
         renderFolders();
@@ -161,6 +179,44 @@ public class MainActivity extends Activity {
         heroActions.addView(serviceButton, new LinearLayout.LayoutParams(0, dp(48), 1));
         hero.addView(heroActions, topMargin(12));
 
+        licenseCard = neonCard("#0B1120", "#164E63");
+        licenseCard.setPadding(dp(18), dp(18), dp(18), dp(18));
+        page.addView(licenseCard, topMargin(14));
+        licenseCard.addView(sectionTitle("License"), matchWrap());
+        licenseStatusView = text("", 14, "#BAE6FD", Typeface.BOLD);
+        licenseStatusView.setPadding(0, dp(8), 0, dp(10));
+        licenseCard.addView(licenseStatusView, matchWrap());
+        machineCodeView = text("", 13, "#E5E7EB", Typeface.BOLD);
+        machineCodeView.setPadding(dp(12), dp(12), dp(12), dp(12));
+        machineCodeView.setBackground(cardBackground("#020617", 14, "#164E63"));
+        licenseCard.addView(machineCodeView, matchWrap());
+        Button copyMachine = darkButton("Copy machine code");
+        copyMachine.setOnClickListener(v -> {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (clipboard != null) clipboard.setPrimaryClip(ClipData.newPlainText("Bridge Share machine code", licenseManager.machineCode()));
+            Toast.makeText(this, "Machine code copied", Toast.LENGTH_SHORT).show();
+        });
+        licenseCard.addView(copyMachine, topMargin(10));
+        licenseInputView = new EditText(this);
+        licenseInputView.setHint("Paste registration code");
+        licenseInputView.setTextColor(color("#E5E7EB"));
+        licenseInputView.setHintTextColor(color("#64748B"));
+        licenseInputView.setSingleLine(false);
+        licenseInputView.setMinLines(2);
+        licenseInputView.setBackground(cardBackground("#020617", 14, "#164E63"));
+        licenseInputView.setPadding(dp(12), dp(10), dp(12), dp(10));
+        licenseCard.addView(licenseInputView, topMargin(10));
+        LinearLayout licenseActions = row();
+        Button activate = pillButton("Activate", "#22D3EE", "#061018");
+        activate.setOnClickListener(v -> activateLicense());
+        licenseActions.addView(activate, new LinearLayout.LayoutParams(0, dp(48), 1));
+        addGap(licenseActions, 10, 1);
+        Button trial = darkButton("Start 7-day trial");
+        trial.setOnClickListener(v -> startTrial());
+        licenseActions.addView(trial, new LinearLayout.LayoutParams(0, dp(48), 1));
+        licenseCard.addView(licenseActions, topMargin(10));
+        renderLicense();
+
         LinearLayout statusCard = neonCard("#101826", "#1F2937");
         statusCard.setPadding(dp(18), dp(18), dp(18), dp(18));
         page.addView(statusCard, topMargin(14));
@@ -169,6 +225,19 @@ public class MainActivity extends Activity {
         statusDetail.setPadding(0, dp(8), 0, 0);
         statusCard.addView(statusTitle, matchWrap());
         statusCard.addView(statusDetail, matchWrap());
+
+        uploadProgressCard = neonCard("#0B1120", "#164E63");
+        uploadProgressCard.setPadding(dp(18), dp(18), dp(18), dp(18));
+        uploadProgressCard.setVisibility(View.GONE);
+        page.addView(uploadProgressCard, topMargin(14));
+        uploadProgressTitle = text("Receiving files", 18, "#F9FAFB", Typeface.BOLD);
+        uploadProgressDetail = text("Waiting for upload...", 14, "#BAE6FD", Typeface.NORMAL);
+        uploadProgressDetail.setPadding(0, dp(8), 0, dp(10));
+        uploadProgressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        uploadProgressBar.setMax(100);
+        uploadProgressCard.addView(uploadProgressTitle, matchWrap());
+        uploadProgressCard.addView(uploadProgressDetail, matchWrap());
+        uploadProgressCard.addView(uploadProgressBar, matchWrap());
 
         LinearLayout folderCard = neonCard("#0F172A", "#1E293B");
         folderCard.setPadding(dp(18), dp(18), dp(18), dp(18));
@@ -244,6 +313,7 @@ public class MainActivity extends Activity {
     }
 
     private void openPushFilePicker() {
+        if (!ensureUsable()) return;
         if (!serviceRunning) {
             Toast.makeText(this, "请先启动服务，并让对方打开网页", Toast.LENGTH_SHORT).show();
             return;
@@ -399,6 +469,7 @@ public class MainActivity extends Activity {
     }
 
     private void startServer() {
+        if (!ensureUsable()) return;
         List<FileShareServer.SharedRoot> roots = resolveSharedRoots();
         if (roots.isEmpty()) {
             Toast.makeText(this, "请先添加可读写的共享文件夹", Toast.LENGTH_SHORT).show();
@@ -496,6 +567,61 @@ public class MainActivity extends Activity {
         clientView.setText(builder.toString());
     }
 
+    private void renderUploadProgress() {
+        if (uploadProgressCard == null) return;
+        FileShareServer.UploadSnapshot snapshot = FileShareServer.uploadProgress();
+        if (!snapshot.active && !snapshot.completed) {
+            uploadProgressCard.setVisibility(View.GONE);
+            return;
+        }
+        uploadProgressCard.setVisibility(View.VISIBLE);
+        if (snapshot.completed) {
+            uploadProgressBar.setProgress(100);
+            uploadProgressTitle.setText("Upload completed");
+            uploadProgressDetail.setText("Saved " + snapshot.saved + " file" + (snapshot.saved == 1 ? "" : "s") + " from the web page.");
+            return;
+        }
+        int percent = snapshot.total > 0 ? Math.min(100, Math.round(snapshot.received * 100f / snapshot.total)) : 0;
+        uploadProgressBar.setProgress(percent);
+        uploadProgressTitle.setText("Receiving upload");
+        uploadProgressDetail.setText(percent + "% · " + formatBytes(snapshot.received) + " / " + formatBytes(snapshot.total));
+    }
+
+    private boolean ensureUsable() {
+        if (licenseManager.canUse()) return true;
+        Toast.makeText(this, licenseManager.trialExpired() ? "Trial expired. Please activate Bridge Share." : "Start a trial or activate Bridge Share first.", Toast.LENGTH_LONG).show();
+        renderLicense();
+        return false;
+    }
+
+    private void renderLicense() {
+        if (licenseStatusView == null) return;
+        licenseStatusView.setText(licenseManager.statusText());
+        machineCodeView.setText("Machine code\n" + licenseManager.machineCode());
+        licenseInputView.setVisibility(licenseManager.isLicensed() ? View.GONE : View.VISIBLE);
+    }
+
+    private void activateLicense() {
+        if (licenseManager.activate(licenseInputView.getText().toString())) {
+            Toast.makeText(this, "Activated", Toast.LENGTH_SHORT).show();
+            licenseInputView.setText("");
+        } else {
+            Toast.makeText(this, licenseManager.lastReason(), Toast.LENGTH_LONG).show();
+        }
+        renderLicense();
+    }
+
+    private void startTrial() {
+        if (!licenseManager.canStartTrial()) {
+            Toast.makeText(this, "Trial has already been used on this device.", Toast.LENGTH_LONG).show();
+            renderLicense();
+            return;
+        }
+        licenseManager.startTrial();
+        Toast.makeText(this, "7-day trial started", Toast.LENGTH_SHORT).show();
+        renderLicense();
+    }
+
     private void renderFolders() {
         if (folderListView == null) return;
         folderListView.removeAllViews();
@@ -558,6 +684,19 @@ public class MainActivity extends Activity {
     private String safeMessage(Exception e) {
         String message = e.getMessage();
         return message == null || message.trim().isEmpty() ? "请重新选择文件" : message;
+    }
+
+    private String formatBytes(long bytes) {
+        if (bytes < 0) return "unknown";
+        if (bytes < 1024) return bytes + " B";
+        double value = bytes;
+        String[] units = {"B", "KB", "MB", "GB", "TB"};
+        int index = 0;
+        while (value >= 1024 && index < units.length - 1) {
+            value /= 1024;
+            index++;
+        }
+        return String.format(java.util.Locale.US, "%.1f %s", value, units[index]);
     }
 
     private List<String> lanUrls() {
