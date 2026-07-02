@@ -17,8 +17,8 @@
         <button id="quickStart">Start sharing</button>
       </section>
 
-      <section class="grid">
-        <div class="card">
+      <section class="dashboard">
+        <div class="card folders-card">
           <h2>Shared folders</h2>
           <p class="muted">Add one or more Windows folders. Phones can browse, upload, download, preview images, and delete files.</p>
           <div id="folders" class="list"></div>
@@ -28,7 +28,7 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="card connection-card">
           <h2>Connection</h2>
           <p id="status" class="status">Service stopped</p>
           <div class="actions">
@@ -37,18 +37,18 @@
           <div id="urls" class="urls"></div>
           <img id="qr" class="qr" alt="QR code" />
         </div>
-      </section>
 
-      <section class="card send-card">
-        <h2>Send files to phone</h2>
-        <p class="muted">Keep the phone webpage open. Then choose files or drag files into the drop zone and select a connected phone.</p>
-        <div id="clients" class="client-list"></div>
-        <div id="dropZone" class="drop-zone">
-          <strong>Drop files here</strong>
-          <span>or</span>
-          <button id="chooseSendFiles">Choose files to send</button>
+        <div class="card send-card">
+          <h2>Send files to phone</h2>
+          <p class="muted">Keep the phone webpage open. Then choose files or drag files into the drop zone and select a connected phone.</p>
+          <div id="clients" class="client-list"></div>
+          <div id="dropZone" class="drop-zone">
+            <strong>Drop files here</strong>
+            <span>or</span>
+            <button id="chooseSendFiles">Choose files to send</button>
+          </div>
+          <div id="sendProgress" class="send-progress"></div>
         </div>
-        <div id="sendProgress" class="send-progress"></div>
       </section>
     </main>
     <script src="./renderer.js"></script>

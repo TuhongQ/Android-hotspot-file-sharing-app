@@ -4,6 +4,12 @@
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -18,10 +24,10 @@ body {
 }
 
 button {
-  height: 46px;
+  height: 40px;
   border: 0;
-  border-radius: 14px;
-  padding: 0 18px;
+  border-radius: 12px;
+  padding: 0 15px;
   background: #22d3ee;
   color: #061018;
   font: inherit;
@@ -36,24 +42,34 @@ button {
 }
 
 .shell {
-  max-width: 1080px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  width: 100%;
+  height: 100vh;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 14px;
+  overflow: hidden;
 }
 
 .hero {
   display: grid;
   grid-template-columns: 1fr auto;
-  align-items: end;
-  gap: 24px;
-  padding: 28px;
-  border-radius: 24px;
-  background: linear-gradient(135deg, #111827, #0f766e, #7c2d12);
-  box-shadow: 0 24px 70px rgba(20, 184, 166, 0.22);
+  align-items: center;
+  gap: 18px;
+  min-height: 104px;
+  padding: 16px 18px;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(17, 24, 39, 0.96), rgba(15, 118, 110, 0.9), rgba(124, 45, 18, 0.88)),
+    #111827;
+  box-shadow: 0 18px 54px rgba(20, 184, 166, 0.2);
 }
 
 .hero p {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   color: #99f6e4;
   font-size: 12px;
   font-weight: 900;
@@ -62,52 +78,67 @@ button {
 
 .hero h1 {
   margin: 0;
-  font-size: 48px;
+  font-size: clamp(30px, 4vw, 40px);
   line-height: 1;
 }
 
 .hero span {
   display: block;
   max-width: 640px;
-  margin-top: 12px;
+  margin-top: 7px;
   color: #e5e7eb;
-  line-height: 1.55;
+  line-height: 1.35;
 }
 
-.grid {
+.dashboard {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  gap: 16px;
-  margin-top: 16px;
+  grid-template-columns: minmax(260px, 1.05fr) minmax(240px, 0.82fr) minmax(280px, 1fr);
+  gap: 12px;
+  min-height: 0;
 }
 
 .card {
-  padding: 20px;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 14px;
   border: 1px solid #1f2937;
-  border-radius: 20px;
+  border-radius: 18px;
   background: rgba(16, 24, 38, 0.92);
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.24);
 }
 
 .card h2 {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
+  font-size: 20px;
 }
 
 .muted {
+  margin: 0;
   color: #94a3b8;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.38;
 }
 
 .actions {
   display: flex;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 10px;
+  flex-wrap: wrap;
 }
 
 .list {
   display: grid;
   gap: 10px;
-  margin-top: 16px;
+  min-height: 0;
+  margin-top: 12px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.folders-card .list {
+  flex: 1;
 }
 
 .folder {
@@ -115,9 +146,9 @@ button {
   grid-template-columns: 1fr auto;
   gap: 12px;
   align-items: center;
-  padding: 14px;
+  padding: 11px;
   border: 1px solid #334155;
-  border-radius: 16px;
+  border-radius: 14px;
   background: #111827;
 }
 
@@ -133,9 +164,10 @@ button {
 }
 
 .status {
-  padding: 12px 14px;
+  margin: 4px 0 0;
+  padding: 10px 12px;
   border: 1px solid #134e4a;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #13201d;
   color: #ccfbf1;
   font-weight: 800;
@@ -144,7 +176,9 @@ button {
 .urls {
   display: grid;
   gap: 8px;
-  margin-top: 16px;
+  max-height: 84px;
+  margin-top: 12px;
+  overflow: auto;
 }
 
 .urls a {
@@ -156,42 +190,47 @@ button {
 
 .qr {
   display: none;
-  width: 240px;
-  height: 240px;
-  margin: 18px auto 0;
+  width: min(180px, 35vh);
+  height: min(180px, 35vh);
+  margin: 12px auto 0;
   padding: 10px;
   border: 1px solid #22d3ee;
-  border-radius: 18px;
+  border-radius: 16px;
   background: #f8fafc;
 }
 
 .send-card {
-  margin-top: 16px;
+  min-width: 0;
 }
 
 .client-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin: 14px 0;
+  gap: 8px;
+  min-height: 34px;
+  max-height: 78px;
+  margin: 10px 0;
+  overflow: auto;
 }
 
 .client {
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid #164e63;
   border-radius: 999px;
   background: #0b1120;
   color: #bae6fd;
+  font-size: 13px;
   font-weight: 800;
 }
 
 .drop-zone {
   display: grid;
   place-items: center;
-  gap: 10px;
-  min-height: 180px;
+  gap: 8px;
+  min-height: 118px;
+  padding: 12px;
   border: 1px dashed #22d3ee;
-  border-radius: 20px;
+  border-radius: 16px;
   background: #020617;
   color: #e5e7eb;
 }
@@ -201,7 +240,7 @@ button {
 }
 
 .drop-zone strong {
-  font-size: 22px;
+  font-size: 18px;
 }
 
 .drop-zone span {
@@ -211,13 +250,15 @@ button {
 .send-progress {
   display: grid;
   gap: 10px;
-  margin-top: 14px;
+  min-height: 0;
+  margin-top: 10px;
+  overflow: auto;
 }
 
 .progress-row {
-  padding: 12px;
+  padding: 10px;
   border: 1px solid #334155;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #111827;
 }
 
@@ -228,8 +269,8 @@ button {
 }
 
 .bar {
-  height: 12px;
-  margin-top: 10px;
+  height: 10px;
+  margin-top: 8px;
   overflow: hidden;
   border: 1px solid #164e63;
   border-radius: 999px;
@@ -242,9 +283,43 @@ button {
   background: linear-gradient(90deg, #22d3ee, #14b8a6);
 }
 
-@media (max-width: 860px) {
+@media (max-width: 960px) {
+  .dashboard {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  }
+
+  .send-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 780px) {
+  html,
+  body {
+    height: auto;
+    overflow: auto;
+  }
+
+  .shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
   .hero,
-  .grid {
+  .dashboard {
     grid-template-columns: 1fr;
+  }
+
+  .hero {
+    align-items: start;
+  }
+
+  .list,
+  .urls,
+  .client-list,
+  .send-progress {
+    max-height: none;
+    overflow: visible;
   }
 }

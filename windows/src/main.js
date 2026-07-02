@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell, screen } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -11,11 +11,15 @@ let folders = [];
 const port = 8088;
 
 function createWindow() {
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+  const windowWidth = Math.min(Math.max(Math.round(screenWidth * 0.82), 980), 1240);
+  const windowHeight = Math.min(Math.max(Math.round(screenHeight * 0.78), 620), 760);
+
   mainWindow = new BrowserWindow({
-    width: 1040,
-    height: 760,
-    minWidth: 880,
-    minHeight: 640,
+    width: windowWidth,
+    height: windowHeight,
+    minWidth: 820,
+    minHeight: 560,
     backgroundColor: "#070a12",
     title: "Bridge Share",
     webPreferences: {
