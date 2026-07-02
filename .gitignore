@@ -9,4 +9,5 @@ android/local.properties
 android/app/keystore.properties
 *.apk
 *.apk.zip
+*.exe
 *.jks
