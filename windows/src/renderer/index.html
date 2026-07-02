@@ -7,12 +7,31 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="shell">
+    <section id="licenseGate" class="license-gate">
+      <div class="license-panel">
+        <p class="eyebrow">BRIDGE SHARE LICENSE</p>
+        <h1>Activate this computer</h1>
+        <p class="muted">Send this machine code to the software provider, then paste the registration code here.</p>
+        <label class="license-label" for="machineCode">Machine code</label>
+        <div class="machine-row">
+          <code id="machineCode">Loading...</code>
+          <button id="copyMachineCode" class="ghost">Copy</button>
+        </div>
+        <label class="license-label" for="licenseInput">Registration code</label>
+        <textarea id="licenseInput" spellcheck="false" placeholder="Paste registration code"></textarea>
+        <div class="actions">
+          <button id="activateLicense">Activate</button>
+        </div>
+        <p id="licenseMessage" class="license-message"></p>
+      </div>
+    </section>
+
+    <main id="appShell" class="shell app-hidden">
       <section class="hero">
         <div>
           <p>WINDOWS LAN FILE HUB</p>
           <h1>Bridge Share</h1>
-          <span>Open on Windows, let phones scan the QR code, and share files on the same local network.</span>
+          <span id="licenseSummary">Open on Windows, let phones scan the QR code, and share files on the same local network.</span>
         </div>
         <button id="quickStart">Start sharing</button>
       </section>

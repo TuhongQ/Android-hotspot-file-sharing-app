@@ -35,10 +35,111 @@ button {
   cursor: pointer;
 }
 
+textarea,
+code {
+  font: inherit;
+}
+
+.app-hidden {
+  display: none;
+}
+
 .ghost {
   background: #111827;
   color: #e5e7eb;
   border: 1px solid #334155;
+}
+
+.license-gate {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 22px;
+}
+
+.license-gate.hidden {
+  display: none;
+}
+
+.license-panel {
+  width: min(720px, 100%);
+  padding: 26px;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  border-radius: 22px;
+  background:
+    linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(12, 74, 110, 0.72)),
+    #0f172a;
+  box-shadow: 0 26px 90px rgba(8, 145, 178, 0.22);
+}
+
+.license-panel h1 {
+  margin: 0 0 10px;
+  font-size: clamp(32px, 5vw, 48px);
+  line-height: 1;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #67e8f9;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.license-label {
+  display: block;
+  margin: 18px 0 8px;
+  color: #bae6fd;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.machine-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid #164e63;
+  border-radius: 14px;
+  background: #020617;
+}
+
+.machine-row code {
+  display: block;
+  color: #f8fafc;
+  font-size: 20px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+#licenseInput {
+  width: 100%;
+  min-height: 122px;
+  resize: vertical;
+  border: 1px solid #164e63;
+  border-radius: 14px;
+  padding: 14px;
+  outline: 0;
+  background: #020617;
+  color: #e5e7eb;
+}
+
+#licenseInput:focus {
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.16);
+}
+
+.license-message {
+  min-height: 22px;
+  margin: 14px 0 0;
+  color: #fca5a5;
+  font-weight: 800;
+}
+
+.license-message.ok {
+  color: #86efac;
 }
 
 .shell {

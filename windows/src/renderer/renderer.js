@@ -1,5 +1,14 @@
 let state = null;
+let licenseState = null;
 
+const licenseGate = document.getElementById("licenseGate");
+const appShell = document.getElementById("appShell");
+const machineCodeEl = document.getElementById("machineCode");
+const licenseInput = document.getElementById("licenseInput");
+const activateLicense = document.getElementById("activateLicense");
+const copyMachineCode = document.getElementById("copyMachineCode");
+const licenseMessage = document.getElementById("licenseMessage");
+const licenseSummary = document.getElementById("licenseSummary");
 const foldersEl = document.getElementById("folders");
 const statusEl = document.getElementById("status");
 const urlsEl = document.getElementById("urls");
@@ -12,6 +21,12 @@ const chooseSendFiles = document.getElementById("chooseSendFiles");
 const sendProgress = document.getElementById("sendProgress");
 let clients = [];
 
+activateLicense.addEventListener("click", activate);
+copyMachineCode.addEventListener("click", async () => {
+  await window.bridgeShare.copyMachineCode();
+  licenseMessage.textContent = "Machine code copied.";
+  licenseMessage.classList.add("ok");
+});
 document.getElementById("addFolders").addEventListener("click", async () => render(await window.bridgeShare.chooseFolders()));
 document.getElementById("clearFolders").addEventListener("click", async () => render(await window.bridgeShare.clearFolders()));
 toggleServer.addEventListener("click", toggle);
@@ -39,8 +54,41 @@ init();
 setInterval(refreshClients, 2000);
 
 async function init() {
+  licenseState = await window.bridgeShare.licenseState();
+  renderLicense(licenseState);
+  if (!licenseState.valid) return;
   render(await window.bridgeShare.state());
   refreshClients();
+}
+
+async function activate() {
+  licenseMessage.textContent = "Checking registration code...";
+  licenseMessage.classList.remove("ok");
+  const result = await window.bridgeShare.activateLicense(licenseInput.value);
+  licenseState = result;
+  renderLicense(result);
+  if (result.valid) {
+    render(await window.bridgeShare.state());
+    refreshClients();
+  }
+}
+
+function renderLicense(nextLicense) {
+  licenseState = nextLicense;
+  machineCodeEl.textContent = licenseState.machineCode;
+  if (licenseState.valid) {
+    licenseGate.classList.add("hidden");
+    appShell.classList.remove("app-hidden");
+    const expiry = licenseState.expiresAt ? `Expires ${new Date(licenseState.expiresAt).toLocaleDateString()}` : "Permanent license";
+    licenseSummary.textContent = `${licenseState.customer || "Licensed user"} · ${expiry}`;
+    licenseMessage.textContent = "Activated successfully.";
+    licenseMessage.classList.add("ok");
+    return;
+  }
+  licenseGate.classList.remove("hidden");
+  appShell.classList.add("app-hidden");
+  licenseMessage.textContent = licenseState.reason || "";
+  licenseMessage.classList.remove("ok");
 }
 
 async function toggle() {
@@ -85,6 +133,7 @@ function render(nextState) {
 }
 
 async function refreshClients() {
+  if (!licenseState?.valid) return;
   clients = await window.bridgeShare.clients();
   clientsEl.innerHTML = "";
   if (!clients.length) {

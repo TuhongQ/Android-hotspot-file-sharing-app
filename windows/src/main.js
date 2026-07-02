@@ -1,13 +1,15 @@
-const { app, BrowserWindow, dialog, ipcMain, shell, screen } = require("electron");
+const { app, BrowserWindow, clipboard, dialog, ipcMain, shell, screen } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const QRCode = require("qrcode");
 const { FileHubServer } = require("./server");
+const { LicenseManager } = require("./license");
 
 let mainWindow;
 let server;
 let folders = [];
+let licenseManager;
 const port = 8088;
 
 function createWindow() {
@@ -32,6 +34,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  licenseManager = new LicenseManager(app.getPath("userData"));
   folders = loadFolders();
   createWindow();
 });
@@ -44,6 +47,7 @@ app.on("window-all-closed", () => {
 ipcMain.handle("state", async () => buildState());
 
 ipcMain.handle("chooseFolders", async () => {
+  if (!requireLicense()) return buildState();
   const result = await dialog.showOpenDialog(mainWindow, {
     title: "Choose shared folders",
     properties: ["openDirectory", "multiSelections"]
@@ -59,6 +63,7 @@ ipcMain.handle("chooseFolders", async () => {
 });
 
 ipcMain.handle("removeFolder", async (_event, folder) => {
+  if (!requireLicense()) return buildState();
   folders = folders.filter((item) => item !== folder);
   saveFolders(folders);
   if (server) restartServer();
@@ -66,6 +71,7 @@ ipcMain.handle("removeFolder", async (_event, folder) => {
 });
 
 ipcMain.handle("clearFolders", async () => {
+  if (!requireLicense()) return buildState();
   folders = [];
   saveFolders(folders);
   if (server) stopServer();
@@ -73,6 +79,7 @@ ipcMain.handle("clearFolders", async () => {
 });
 
 ipcMain.handle("startServer", async () => {
+  if (!requireLicense()) return buildState();
   startServer();
   return buildState();
 });
@@ -89,6 +96,7 @@ ipcMain.handle("openExternal", async (_event, url) => {
 ipcMain.handle("clients", async () => FileHubServer.connectedClients());
 
 ipcMain.handle("chooseSendFiles", async () => {
+  if (!requireLicense()) return [];
   const result = await dialog.showOpenDialog(mainWindow, {
     title: "Choose files to send",
     properties: ["openFile", "multiSelections"]
@@ -96,12 +104,24 @@ ipcMain.handle("chooseSendFiles", async () => {
   return result.canceled ? [] : result.filePaths;
 });
 
-ipcMain.handle("pushFile", async (_event, clientId, filePath) => FileHubServer.pushFileToClient(clientId, filePath));
+ipcMain.handle("pushFile", async (_event, clientId, filePath) => {
+  if (!requireLicense()) return null;
+  return FileHubServer.pushFileToClient(clientId, filePath);
+});
 
 ipcMain.handle("offerProgress", async (_event, offerId) => FileHubServer.offerProgress(offerId));
 
+ipcMain.handle("licenseState", async () => licenseManager.state());
+
+ipcMain.handle("activateLicense", async (_event, licenseKey) => licenseManager.activate(licenseKey));
+
+ipcMain.handle("copyMachineCode", async () => {
+  clipboard.writeText(licenseManager.state().machineCode);
+  return true;
+});
+
 function startServer() {
-  if (server || folders.length === 0) return;
+  if (server || folders.length === 0 || !requireLicense()) return;
   server = new FileHubServer({ folders, port });
   server.start();
 }
@@ -122,10 +142,17 @@ async function buildState() {
   const qr = urls[0] ? await QRCode.toDataURL(urls[0], { margin: 1, width: 280 }) : "";
   return {
     running: Boolean(server),
+    license: licenseManager.state(),
     folders: folders.map((folder) => ({ path: folder, name: path.basename(folder) || folder })),
     urls,
     qr
   };
+}
+
+function requireLicense() {
+  if (licenseManager?.isValid()) return true;
+  if (server) stopServer();
+  return false;
 }
 
 function lanUrls() {

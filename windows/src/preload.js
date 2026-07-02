@@ -11,5 +11,8 @@ contextBridge.exposeInMainWorld("bridgeShare", {
   clients: () => ipcRenderer.invoke("clients"),
   chooseSendFiles: () => ipcRenderer.invoke("chooseSendFiles"),
   pushFile: (clientId, filePath) => ipcRenderer.invoke("pushFile", clientId, filePath),
-  offerProgress: (offerId) => ipcRenderer.invoke("offerProgress", offerId)
+  offerProgress: (offerId) => ipcRenderer.invoke("offerProgress", offerId),
+  licenseState: () => ipcRenderer.invoke("licenseState"),
+  activateLicense: (licenseKey) => ipcRenderer.invoke("activateLicense", licenseKey),
+  copyMachineCode: () => ipcRenderer.invoke("copyMachineCode")
 });

@@ -11,3 +11,4 @@ android/app/keystore.properties
 *.apk.zip
 *.exe
 *.jks
+windows/tools/license-private-key.pem
