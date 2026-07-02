@@ -11,7 +11,7 @@
 body {
   min-height: 100vh;
   margin: 0;
-  overflow: hidden;
+  overflow: auto;
   background:
     radial-gradient(circle at top left, rgba(34, 211, 238, 0.18), transparent 30rem),
     radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.16), transparent 28rem),
@@ -21,7 +21,7 @@ body {
 .shell {
   width: min(560px, 100%);
   margin: 0 auto;
-  padding: 12px;
+  padding: 10px;
 }
 
 .hero,
@@ -55,9 +55,9 @@ body {
 
 .panel {
   display: grid;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 14px;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 12px;
 }
 
 label {
@@ -85,7 +85,7 @@ textarea:focus {
 }
 
 textarea {
-  min-height: 104px;
+  min-height: 138px;
   resize: vertical;
 }
 
@@ -136,6 +136,9 @@ button {
   border: 1px solid #164e63;
   background: #020617;
   color: #e5e7eb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .expiry-preview {

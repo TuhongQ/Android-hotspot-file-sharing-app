@@ -98,12 +98,22 @@ function closeDateDialog() {
 }
 
 function updateExpiryPreview() {
-  pickDate.disabled = permanent.checked;
-  expiryPreview.textContent = permanent.checked ? "当前：永久授权" : `当前：${expiresAt.value || "未选择到期日期"}`;
+  if (permanent.checked) {
+    pickDate.textContent = "选择到期日期";
+    expiryPreview.textContent = "当前：永久授权";
+    return;
+  }
+  pickDate.textContent = expiresAt.value ? `到期：${formatDate(expiresAt.value)}` : "选择到期日期";
+  expiryPreview.textContent = expiresAt.value ? `当前到期日期：${formatDate(expiresAt.value)}` : "当前：未选择到期日期";
 }
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function formatDate(value) {
+  const [year, month, day] = String(value).split("-");
+  return year && month && day ? `${year}-${month}-${day}` : value;
 }
 
 updateExpiryPreview();

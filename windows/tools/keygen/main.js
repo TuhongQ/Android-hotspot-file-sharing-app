@@ -9,9 +9,9 @@ let mainWindow;
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 560,
-    height: 560,
+    height: 650,
     minWidth: 520,
-    minHeight: 520,
+    minHeight: 620,
     backgroundColor: "#070a12",
     title: "Bridge Share Keygen",
     webPreferences: {
