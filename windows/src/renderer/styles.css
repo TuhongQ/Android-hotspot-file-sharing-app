@@ -165,6 +165,83 @@ button {
   background: #f8fafc;
 }
 
+.send-card {
+  margin-top: 16px;
+}
+
+.client-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.client {
+  padding: 10px 12px;
+  border: 1px solid #164e63;
+  border-radius: 999px;
+  background: #0b1120;
+  color: #bae6fd;
+  font-weight: 800;
+}
+
+.drop-zone {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  min-height: 180px;
+  border: 1px dashed #22d3ee;
+  border-radius: 20px;
+  background: #020617;
+  color: #e5e7eb;
+}
+
+.drop-zone.drag {
+  background: rgba(34, 211, 238, 0.14);
+}
+
+.drop-zone strong {
+  font-size: 22px;
+}
+
+.drop-zone span {
+  color: #94a3b8;
+}
+
+.send-progress {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.progress-row {
+  padding: 12px;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  background: #111827;
+}
+
+.progress-row div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bar {
+  height: 12px;
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid #164e63;
+  border-radius: 999px;
+  background: #020617;
+}
+
+.fill {
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #22d3ee, #14b8a6);
+}
+
 @media (max-width: 860px) {
   .hero,
   .grid {

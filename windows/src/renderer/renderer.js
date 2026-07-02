@@ -6,6 +6,11 @@ const urlsEl = document.getElementById("urls");
 const qrEl = document.getElementById("qr");
 const toggleServer = document.getElementById("toggleServer");
 const quickStart = document.getElementById("quickStart");
+const clientsEl = document.getElementById("clients");
+const dropZone = document.getElementById("dropZone");
+const chooseSendFiles = document.getElementById("chooseSendFiles");
+const sendProgress = document.getElementById("sendProgress");
+let clients = [];
 
 document.getElementById("addFolders").addEventListener("click", async () => render(await window.bridgeShare.chooseFolders()));
 document.getElementById("clearFolders").addEventListener("click", async () => render(await window.bridgeShare.clearFolders()));
@@ -14,11 +19,28 @@ quickStart.addEventListener("click", async () => {
   if (!state.folders.length) render(await window.bridgeShare.chooseFolders());
   if (state.folders.length && !state.running) render(await window.bridgeShare.startServer());
 });
+chooseSendFiles.addEventListener("click", async () => {
+  const files = await window.bridgeShare.chooseSendFiles();
+  if (files.length) sendFiles(files);
+});
+dropZone.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  dropZone.classList.add("drag");
+});
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag"));
+dropZone.addEventListener("drop", (event) => {
+  event.preventDefault();
+  dropZone.classList.remove("drag");
+  const files = Array.from(event.dataTransfer.files || []).map((file) => file.path).filter(Boolean);
+  if (files.length) sendFiles(files);
+});
 
 init();
+setInterval(refreshClients, 2000);
 
 async function init() {
   render(await window.bridgeShare.state());
+  refreshClients();
 }
 
 async function toggle() {
@@ -60,6 +82,74 @@ function render(nextState) {
   }
   qrEl.style.display = state.running && state.qr ? "block" : "none";
   qrEl.src = state.qr || "";
+}
+
+async function refreshClients() {
+  clients = await window.bridgeShare.clients();
+  clientsEl.innerHTML = "";
+  if (!clients.length) {
+    clientsEl.innerHTML = `<p class="muted">No phone connected yet. Open the QR page on the phone first.</p>`;
+    return;
+  }
+  for (const client of clients) {
+    const pill = document.createElement("span");
+    pill.className = "client";
+    pill.textContent = client.name;
+    clientsEl.appendChild(pill);
+  }
+}
+
+async function sendFiles(files) {
+  await refreshClients();
+  if (!clients.length) {
+    alert("No phone connected. Open the QR page on the phone first.");
+    return;
+  }
+  const client = clients.length === 1 ? clients[0] : chooseClient();
+  if (!client) return;
+  for (const file of files) {
+    const row = createProgressRow(file, client.name);
+    sendProgress.prepend(row.element);
+    const offerId = await window.bridgeShare.pushFile(client.id, file);
+    if (!offerId) {
+      row.status.textContent = "Failed to notify phone";
+      continue;
+    }
+    row.status.textContent = "Waiting for phone to receive";
+    pollOffer(offerId, row);
+  }
+}
+
+function chooseClient() {
+  const list = clients.map((client, index) => `${index + 1}. ${client.name}`).join("\n");
+  const answer = prompt(`Choose target phone:\n${list}`, "1");
+  const index = Number(answer) - 1;
+  return clients[index] || null;
+}
+
+function createProgressRow(file, clientName) {
+  const element = document.createElement("div");
+  element.className = "progress-row";
+  element.innerHTML = `<div><strong>${escapeHtml(file.split(/[\\/]/).pop())}</strong><span>to ${escapeHtml(clientName)}</span></div><div class="bar"><div class="fill"></div></div><small>Preparing</small>`;
+  return {
+    element,
+    fill: element.querySelector(".fill"),
+    status: element.querySelector("small")
+  };
+}
+
+async function pollOffer(offerId, row) {
+  const timer = setInterval(async () => {
+    const progress = await window.bridgeShare.offerProgress(offerId);
+    if (!progress.started) {
+      row.status.textContent = "Waiting for phone to receive";
+      return;
+    }
+    const percent = progress.total > 0 ? Math.min(100, Math.round(progress.sent * 100 / progress.total)) : (progress.completed ? 100 : 50);
+    row.fill.style.width = `${percent}%`;
+    row.status.textContent = progress.completed ? "Completed" : `Sending ${percent}%`;
+    if (progress.completed) clearInterval(timer);
+  }, 350);
 }
 
 function escapeHtml(value) {

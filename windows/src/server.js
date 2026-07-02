@@ -2,6 +2,10 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { URL } = require("url");
+const crypto = require("crypto");
+
+const clients = new Map();
+const offers = new Map();
 
 class FileHubServer {
   constructor({ folders, port }) {
@@ -24,15 +28,50 @@ class FileHubServer {
     try {
       const url = new URL(req.url, `http://${req.headers.host}`);
       if (req.method === "GET" && url.pathname === "/") return this.home(res);
+      if (req.method === "GET" && url.pathname === "/events") return this.events(req, url, res);
       if (req.method === "GET" && url.pathname === "/browse") return this.browse(url, res);
       if (req.method === "GET" && url.pathname === "/download") return this.download(url, res, true);
       if (req.method === "GET" && url.pathname === "/raw") return this.download(url, res, false);
+      if (req.method === "GET" && url.pathname === "/shared") return this.shared(url, res);
       if (req.method === "POST" && url.pathname === "/upload") return this.upload(req, url, res);
       if (req.method === "POST" && url.pathname === "/delete") return this.delete(url, res);
       this.text(res, 404, "Not Found");
     } catch (error) {
       this.text(res, 500, error.message || "Server Error");
     }
+  }
+
+  events(req, url, res) {
+    const id = url.searchParams.get("id") || crypto.randomUUID();
+    const name = url.searchParams.get("name") || `Phone ${id.slice(-4)}`;
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive"
+    });
+    const client = {
+      id,
+      name,
+      lastSeen: Date.now(),
+      send(event, data) {
+        try {
+          res.write(`event: ${event}\n`);
+          res.write(`data: ${JSON.stringify(data)}\n\n`);
+          client.lastSeen = Date.now();
+          return true;
+        } catch {
+          clients.delete(id);
+          return false;
+        }
+      }
+    };
+    clients.set(id, client);
+    client.send("hello", { id });
+    const timer = setInterval(() => client.send("ping", { time: Date.now() }), 15000);
+    req.on("close", () => {
+      clearInterval(timer);
+      clients.delete(id);
+    });
   }
 
   home(res) {
@@ -43,7 +82,7 @@ class FileHubServer {
     this.folders.forEach((folder, index) => {
       html += `<a class="item link" href="/browse?r=${index}&path="><b>${escapeHtml(path.basename(folder) || folder)}</b><small>Open</small></a>`;
     });
-    html += `</section></main></body></html>`;
+    html += `</section>${pushDialog()}${clientScript()}</main></body></html>`;
     this.html(res, html);
   }
 
@@ -76,7 +115,7 @@ class FileHubServer {
         html += `<b>${escapeHtml(entry.name)}</b><span>${formatBytes(stat.size)}</span><a href="/download?r=${rootIndex}&path=${encoded}">Download</a></div></div>`;
       }
     }
-    html += `</section>${progressDialog()}${imagePreview()}${pageScript()}</main></body></html>`;
+    html += `</section>${progressDialog()}${imagePreview()}${pushDialog()}${pageScript()}${clientScript()}</main></body></html>`;
     this.html(res, html);
   }
 
@@ -112,6 +151,29 @@ class FileHubServer {
     this.json(res, { ok: true });
   }
 
+  shared(url, res) {
+    const offer = offers.get(url.searchParams.get("id"));
+    if (!offer || !fs.existsSync(offer.filePath)) return this.text(res, 404, "Shared file not found");
+    const stat = fs.statSync(offer.filePath);
+    offer.started = true;
+    offer.sent = 0;
+    offer.completed = false;
+    res.writeHead(200, {
+      "Content-Type": mimeFromName(offer.name),
+      "Content-Length": stat.size,
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(offer.name)}`,
+      "Cache-Control": "no-store"
+    });
+    const stream = fs.createReadStream(offer.filePath);
+    stream.on("data", (chunk) => {
+      offer.sent += chunk.length;
+    });
+    stream.on("end", () => {
+      offer.completed = true;
+    });
+    stream.pipe(res);
+  }
+
   resolve(rootIndex, relative) {
     const root = this.folders[rootIndex];
     if (!root) return null;
@@ -136,9 +198,48 @@ class FileHubServer {
   }
 }
 
+FileHubServer.connectedClients = function connectedClients() {
+  return Array.from(clients.values()).map((client) => ({
+    id: client.id,
+    name: client.name,
+    lastSeen: client.lastSeen
+  }));
+};
+
+FileHubServer.pushFileToClient = function pushFileToClient(clientId, filePath) {
+  const client = clients.get(clientId);
+  if (!client || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return null;
+  const id = crypto.randomUUID();
+  const stat = fs.statSync(filePath);
+  const offer = {
+    id,
+    filePath,
+    name: path.basename(filePath),
+    size: stat.size,
+    sent: 0,
+    started: false,
+    completed: false
+  };
+  offers.set(id, offer);
+  const ok = client.send("push", {
+    id,
+    name: offer.name,
+    size: offer.size,
+    sizeText: formatBytes(offer.size),
+    url: `/shared?id=${id}`
+  });
+  return ok ? id : null;
+};
+
+FileHubServer.offerProgress = function offerProgress(id) {
+  const offer = offers.get(id);
+  if (!offer) return { total: -1, sent: 0, started: false, completed: false };
+  return { total: offer.size, sent: offer.sent, started: offer.started, completed: offer.completed };
+};
+
 function pageStart(title) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><style>
-:root{color:#e5e7eb;background:#070a12;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}body{margin:0;background:#070a12}main{max-width:820px;margin:0 auto;padding:16px 14px 34px}.hero{background:linear-gradient(135deg,#111827,#0f766e,#7c2d12);color:white;border-radius:22px;padding:24px;margin-bottom:14px;box-shadow:0 18px 42px rgba(20,184,166,.24)}.hero p{margin:0 0 8px;color:#99f6e4;font-size:12px;font-weight:900;letter-spacing:.08em}.hero h1{margin:0;font-size:34px}.hero span{display:block;margin-top:10px;color:#e5e7eb;overflow-wrap:anywhere}.card,.uploadCard{background:#101826;border:1px solid #1f2937;border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 12px 34px rgba(0,0,0,.2)}.uploadCard{border-color:#22d3ee;background:linear-gradient(180deg,#101826,#0f172a)}h2{font-size:18px;margin:0 0 12px;color:#f9fafb}.muted{color:#94a3b8;line-height:1.55}.item{display:flex;align-items:center;gap:10px;background:#111827;border:1px solid #334155;border-radius:14px;padding:15px;margin:10px 0;color:#e5e7eb;text-decoration:none}.item b{flex:1;min-width:0;overflow-wrap:anywhere}.item span,.item small{color:#94a3b8}.item a,a{color:#22d3ee;font-weight:900;text-decoration:none}.swipe{position:relative;overflow:hidden;border-radius:14px;margin:10px 0}.swipe .item{margin:0;transition:transform .18s ease}.deleteBtn{position:absolute;right:0;top:0;bottom:0;width:86px;height:auto;border:0;border-radius:0 14px 14px 0;background:#ef4444;color:white}.swipeContent{position:relative;z-index:1}.folderIcon{display:grid;place-items:center;width:58px;height:58px;border-radius:13px;background:#0f766e;color:#ccfbf1;font-size:12px;font-weight:900}.thumb{width:68px;height:68px;border-radius:14px;object-fit:cover;background:#020617;border:1px solid #334155;flex:0 0 auto}form{display:grid;gap:13px;min-width:0}form strong{font-size:19px;color:#f9fafb}form span{color:#94a3b8}.filePick{display:block;box-sizing:border-box;width:100%;max-width:100%;min-width:0;padding:14px;border:1px dashed #22d3ee;border-radius:16px;background:#020617;overflow:hidden}.filePick input{display:block;box-sizing:border-box;width:100%;max-width:100%;min-width:0;color:#e5e7eb;font-size:15px}.filePick input::file-selector-button{height:44px;margin-right:10px;border:0;border-radius:12px;background:#22d3ee;color:#061018;font-weight:900;padding:0 14px}button{height:58px;border:0;border-radius:16px;background:#22d3ee;color:#061018;font-size:17px;font-weight:900}.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.72);backdrop-filter:blur(8px);padding:20px;z-index:9}.dialog{width:min(360px,100%);background:#101826;border:1px solid #22d3ee;border-radius:20px;padding:20px;box-shadow:0 24px 70px rgba(0,0,0,.45)}.bar{height:14px;background:#020617;border-radius:999px;overflow:hidden;border:1px solid #164e63}.fill{height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#14b8a6)}.pct{margin-top:10px;color:#67e8f9;font-weight:900;text-align:right}.preview{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.9);z-index:10;padding:18px}.preview img{max-width:100%;max-height:88vh;border-radius:18px}.preview button{position:absolute;top:18px;right:18px;width:48px;height:48px;border-radius:50%;background:#111827;color:#e5e7eb}
+:root{color:#e5e7eb;background:#070a12;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}body{margin:0;background:#070a12}main{max-width:820px;margin:0 auto;padding:16px 14px 34px}.hero{background:linear-gradient(135deg,#111827,#0f766e,#7c2d12);color:white;border-radius:22px;padding:24px;margin-bottom:14px;box-shadow:0 18px 42px rgba(20,184,166,.24)}.hero p{margin:0 0 8px;color:#99f6e4;font-size:12px;font-weight:900;letter-spacing:.08em}.hero h1{margin:0;font-size:34px}.hero span{display:block;margin-top:10px;color:#e5e7eb;overflow-wrap:anywhere}.card,.uploadCard{background:#101826;border:1px solid #1f2937;border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 12px 34px rgba(0,0,0,.2)}.uploadCard{border-color:#22d3ee;background:linear-gradient(180deg,#101826,#0f172a)}h2{font-size:18px;margin:0 0 12px;color:#f9fafb}.muted{color:#94a3b8;line-height:1.55}.item{display:flex;align-items:center;gap:10px;background:#111827;border:1px solid #334155;border-radius:14px;padding:15px;margin:10px 0;color:#e5e7eb;text-decoration:none}.item b{flex:1;min-width:0;overflow-wrap:anywhere}.item span,.item small{color:#94a3b8}.item a,a{color:#22d3ee;font-weight:900;text-decoration:none}.swipe{position:relative;overflow:hidden;border-radius:14px;margin:10px 0}.swipe .item{margin:0;transition:transform .18s ease}.deleteBtn{position:absolute;right:0;top:0;bottom:0;width:86px;height:auto;border:0;border-radius:0 14px 14px 0;background:#ef4444;color:white}.swipeContent{position:relative;z-index:1}.folderIcon{display:grid;place-items:center;width:58px;height:58px;border-radius:13px;background:#0f766e;color:#ccfbf1;font-size:12px;font-weight:900}.thumb{width:68px;height:68px;border-radius:14px;object-fit:cover;background:#020617;border:1px solid #334155;flex:0 0 auto}form{display:grid;gap:13px;min-width:0}form strong{font-size:19px;color:#f9fafb}form span{color:#94a3b8}.filePick{display:block;box-sizing:border-box;width:100%;max-width:100%;min-width:0;padding:14px;border:1px dashed #22d3ee;border-radius:16px;background:#020617;overflow:hidden}.filePick input{display:block;box-sizing:border-box;width:100%;max-width:100%;min-width:0;color:#e5e7eb;font-size:15px}.filePick input::file-selector-button{height:44px;margin-right:10px;border:0;border-radius:12px;background:#22d3ee;color:#061018;font-weight:900;padding:0 14px}button{height:58px;border:0;border-radius:16px;background:#22d3ee;color:#061018;font-size:17px;font-weight:900}.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.72);backdrop-filter:blur(8px);padding:20px;z-index:9}.dialog{width:min(360px,100%);background:#101826;border:1px solid #22d3ee;border-radius:20px;padding:20px;box-shadow:0 24px 70px rgba(0,0,0,.45)}.bar{height:14px;background:#020617;border-radius:999px;overflow:hidden;border:1px solid #164e63}.fill{height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#14b8a6)}.pct{margin-top:10px;color:#67e8f9;font-weight:900;text-align:right}.preview{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.9);z-index:10;padding:18px}.preview img{max-width:100%;max-height:88vh;border-radius:18px}.preview button{position:absolute;top:18px;right:18px;width:48px;height:48px;border-radius:50%;background:#111827;color:#e5e7eb}.pushActions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pushActions a,.pushActions button{display:grid;place-items:center;height:50px;border-radius:14px;font-size:16px}.pushActions .cancel{background:#1f2937;color:#e5e7eb}
 </style></head><body><main>`;
 }
 
@@ -150,11 +251,21 @@ function imagePreview() {
   return `<div class="preview" id="imagePreview"><button id="closePreview">X</button><img id="previewImage" alt=""></div>`;
 }
 
+function pushDialog() {
+  return `<div class="overlay" id="pushOverlay"><div class="dialog"><h3>Windows sent a file</h3><p id="pushText">A file is waiting.</p><div class="bar"><div class="fill" id="pushFill"></div></div><div class="pct" id="pushPct">Waiting</div><div class="pushActions"><button class="cancel" id="pushCancel">Later</button><a id="pushDownload" href="#">Receive</a></div></div></div>`;
+}
+
 function pageScript() {
   return `<script>
 (function(){var form=document.getElementById('uploadForm');if(!form)return;var overlay=document.getElementById('progressOverlay'),fill=document.getElementById('progressFill'),pct=document.getElementById('progressPct'),text=document.getElementById('progressText');form.addEventListener('submit',function(e){e.preventDefault();var input=form.querySelector('input[type=file]');if(!input.files.length){alert('Choose files first');return;}overlay.style.display='flex';var xhr=new XMLHttpRequest();xhr.open('POST',form.action,true);xhr.upload.onprogress=function(ev){if(ev.lengthComputable){var p=Math.round(ev.loaded*100/ev.total);fill.style.width=p+'%';pct.textContent=p+'%';text.textContent='Uploading '+input.files.length+' file(s)';}};xhr.onload=function(){fill.style.width='100%';pct.textContent='100%';try{var data=JSON.parse(xhr.responseText);setTimeout(function(){location.href=data.redirect||location.href;},350);}catch(e){location.reload();}};xhr.onerror=function(){pct.textContent='Failed';};xhr.send(new FormData(form));});})();
 (function(){document.querySelectorAll('.swipe').forEach(function(row){var content=row.querySelector('.swipeContent'),del=row.querySelector('.deleteBtn'),startX=0,current=0;row.addEventListener('touchstart',function(e){startX=e.touches[0].clientX;current=0;},{passive:true});row.addEventListener('touchmove',function(e){current=e.touches[0].clientX-startX;if(current<0)content.style.transform='translateX('+Math.max(current,-86)+'px)';},{passive:true});row.addEventListener('touchend',function(){content.style.transform=current<-42?'translateX(-86px)':'translateX(0)';});del.addEventListener('click',function(){if(!confirm('Delete this item?'))return;fetch(del.dataset.delete,{method:'POST'}).then(function(r){if(!r.ok)throw new Error();row.remove();}).catch(function(){alert('Delete failed');});});});})();
 (function(){var modal=document.getElementById('imagePreview'),img=document.getElementById('previewImage'),close=document.getElementById('closePreview');document.querySelectorAll('.thumb').forEach(function(t){t.addEventListener('click',function(e){e.preventDefault();img.src=t.dataset.full;modal.style.display='flex';});});close&&close.addEventListener('click',function(){modal.style.display='none';img.src='';});modal&&modal.addEventListener('click',function(e){if(e.target===modal){modal.style.display='none';img.src='';}});})();
+</script>`;
+}
+
+function clientScript() {
+  return `<script>
+(function(){if(!window.EventSource)return;var id=localStorage.getItem('bridgeClientId');if(!id){id='c_'+Math.random().toString(36).slice(2)+Date.now();localStorage.setItem('bridgeClientId',id);}var name=localStorage.getItem('bridgeClientName');if(!name){name=(navigator.platform||'Phone')+' '+id.slice(-4);localStorage.setItem('bridgeClientName',name);}var source=new EventSource('/events?id='+encodeURIComponent(id)+'&name='+encodeURIComponent(name));source.addEventListener('push',function(ev){var data={};try{data=JSON.parse(ev.data||'{}');}catch(e){}var overlay=document.getElementById('pushOverlay'),text=document.getElementById('pushText'),link=document.getElementById('pushDownload'),cancel=document.getElementById('pushCancel'),fill=document.getElementById('pushFill'),pct=document.getElementById('pushPct');if(!overlay||!link)return;text.textContent='File: '+(data.name||'download')+', size: '+(data.sizeText||'unknown');fill.style.width='0%';pct.textContent='Waiting';overlay.style.display='flex';cancel.onclick=function(){overlay.style.display='none';};link.onclick=function(e){e.preventDefault();link.style.pointerEvents='none';var xhr=new XMLHttpRequest();xhr.open('GET',data.url,true);xhr.responseType='blob';xhr.onprogress=function(ev){if(ev.lengthComputable){var p=Math.round(ev.loaded*100/ev.total);fill.style.width=p+'%';pct.textContent=p+'%';}else{pct.textContent='Receiving...';}};xhr.onload=function(){link.style.pointerEvents='auto';if(xhr.status>=200&&xhr.status<300){fill.style.width='100%';pct.textContent='100%';var blob=xhr.response;var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=data.name||'download';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();overlay.style.display='none';},650);}else{pct.textContent='Failed';}};xhr.onerror=function(){link.style.pointerEvents='auto';pct.textContent='Failed';};xhr.send();};});})();
 </script>`;
 }
 

@@ -82,6 +82,20 @@ ipcMain.handle("openExternal", async (_event, url) => {
   await shell.openExternal(url);
 });
 
+ipcMain.handle("clients", async () => FileHubServer.connectedClients());
+
+ipcMain.handle("chooseSendFiles", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Choose files to send",
+    properties: ["openFile", "multiSelections"]
+  });
+  return result.canceled ? [] : result.filePaths;
+});
+
+ipcMain.handle("pushFile", async (_event, clientId, filePath) => FileHubServer.pushFileToClient(clientId, filePath));
+
+ipcMain.handle("offerProgress", async (_event, offerId) => FileHubServer.offerProgress(offerId));
+
 function startServer() {
   if (server || folders.length === 0) return;
   server = new FileHubServer({ folders, port });

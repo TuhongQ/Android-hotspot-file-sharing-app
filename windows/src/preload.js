@@ -7,5 +7,9 @@ contextBridge.exposeInMainWorld("bridgeShare", {
   clearFolders: () => ipcRenderer.invoke("clearFolders"),
   startServer: () => ipcRenderer.invoke("startServer"),
   stopServer: () => ipcRenderer.invoke("stopServer"),
-  openExternal: (url) => ipcRenderer.invoke("openExternal", url)
+  openExternal: (url) => ipcRenderer.invoke("openExternal", url),
+  clients: () => ipcRenderer.invoke("clients"),
+  chooseSendFiles: () => ipcRenderer.invoke("chooseSendFiles"),
+  pushFile: (clientId, filePath) => ipcRenderer.invoke("pushFile", clientId, filePath),
+  offerProgress: (offerId) => ipcRenderer.invoke("offerProgress", offerId)
 });
