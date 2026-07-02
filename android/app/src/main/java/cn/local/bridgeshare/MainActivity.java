@@ -54,10 +54,7 @@ public class MainActivity extends Activity {
     private final List<Uri> folderUris = new ArrayList<>();
     private AndroidLicenseManager licenseManager;
     private LinearLayout folderListView;
-    private LinearLayout licenseCard;
-    private TextView licenseStatusView;
-    private TextView machineCodeView;
-    private EditText licenseInputView;
+    private Button licenseButton;
     private TextView statusTitle;
     private TextView statusDetail;
     private TextView addressView;
@@ -179,42 +176,9 @@ public class MainActivity extends Activity {
         heroActions.addView(serviceButton, new LinearLayout.LayoutParams(0, dp(48), 1));
         hero.addView(heroActions, topMargin(12));
 
-        licenseCard = neonCard("#0B1120", "#164E63");
-        licenseCard.setPadding(dp(18), dp(18), dp(18), dp(18));
-        page.addView(licenseCard, topMargin(14));
-        licenseCard.addView(sectionTitle("License"), matchWrap());
-        licenseStatusView = text("", 14, "#BAE6FD", Typeface.BOLD);
-        licenseStatusView.setPadding(0, dp(8), 0, dp(10));
-        licenseCard.addView(licenseStatusView, matchWrap());
-        machineCodeView = text("", 13, "#E5E7EB", Typeface.BOLD);
-        machineCodeView.setPadding(dp(12), dp(12), dp(12), dp(12));
-        machineCodeView.setBackground(cardBackground("#020617", 14, "#164E63"));
-        licenseCard.addView(machineCodeView, matchWrap());
-        Button copyMachine = darkButton("Copy machine code");
-        copyMachine.setOnClickListener(v -> {
-            ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-            if (clipboard != null) clipboard.setPrimaryClip(ClipData.newPlainText("Bridge Share machine code", licenseManager.machineCode()));
-            Toast.makeText(this, "Machine code copied", Toast.LENGTH_SHORT).show();
-        });
-        licenseCard.addView(copyMachine, topMargin(10));
-        licenseInputView = new EditText(this);
-        licenseInputView.setHint("Paste registration code");
-        licenseInputView.setTextColor(color("#E5E7EB"));
-        licenseInputView.setHintTextColor(color("#64748B"));
-        licenseInputView.setSingleLine(false);
-        licenseInputView.setMinLines(2);
-        licenseInputView.setBackground(cardBackground("#020617", 14, "#164E63"));
-        licenseInputView.setPadding(dp(12), dp(10), dp(12), dp(10));
-        licenseCard.addView(licenseInputView, topMargin(10));
-        LinearLayout licenseActions = row();
-        Button activate = pillButton("Activate", "#22D3EE", "#061018");
-        activate.setOnClickListener(v -> activateLicense());
-        licenseActions.addView(activate, new LinearLayout.LayoutParams(0, dp(48), 1));
-        addGap(licenseActions, 10, 1);
-        Button trial = darkButton("Start 7-day trial");
-        trial.setOnClickListener(v -> startTrial());
-        licenseActions.addView(trial, new LinearLayout.LayoutParams(0, dp(48), 1));
-        licenseCard.addView(licenseActions, topMargin(10));
+        licenseButton = darkButton("Register");
+        licenseButton.setOnClickListener(v -> showLicenseDialog());
+        hero.addView(licenseButton, topMargin(10));
         renderLicense();
 
         LinearLayout statusCard = neonCard("#101826", "#1F2937");
@@ -595,20 +559,72 @@ public class MainActivity extends Activity {
     }
 
     private void renderLicense() {
-        if (licenseStatusView == null) return;
-        licenseStatusView.setText(licenseManager.statusText());
-        machineCodeView.setText("Machine code\n" + licenseManager.machineCode());
-        licenseInputView.setVisibility(licenseManager.isLicensed() ? View.GONE : View.VISIBLE);
+        if (licenseButton == null) return;
+        licenseButton.setText(licenseManager.compactStatusText());
     }
 
-    private void activateLicense() {
-        if (licenseManager.activate(licenseInputView.getText().toString())) {
+    private void showLicenseDialog() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(18);
+        box.setPadding(pad, pad, pad, pad);
+        TextView status = text(licenseManager.statusText(), 14, "#111827", Typeface.BOLD);
+        TextView machine = text("Machine code\n" + licenseManager.machineCode(), 13, "#334155", Typeface.BOLD);
+        machine.setPadding(0, dp(12), 0, dp(8));
+        EditText input = new EditText(this);
+        input.setHint("Paste registration code");
+        input.setSingleLine(false);
+        input.setMinLines(2);
+        input.setVisibility(licenseManager.isLicensed() ? View.GONE : View.VISIBLE);
+        box.addView(status, matchWrap());
+        box.addView(machine, matchWrap());
+        box.addView(input, matchWrap());
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("License")
+                .setView(box)
+                .setPositiveButton("Activate", null)
+                .setNeutralButton("Copy code", null)
+                .setNegativeButton("Close", null)
+                .create();
+        dialog.setOnShowListener(d -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                if (activateLicense(input.getText().toString())) dialog.dismiss();
+            });
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+                ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                if (clipboard != null) clipboard.setPrimaryClip(ClipData.newPlainText("Bridge Share machine code", licenseManager.machineCode()));
+                Toast.makeText(this, "Machine code copied", Toast.LENGTH_SHORT).show();
+            });
+            if (licenseManager.isLicensed()) {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setText("Remove");
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                    licenseManager.clearLicense();
+                    Toast.makeText(this, "Registration removed", Toast.LENGTH_SHORT).show();
+                    renderLicense();
+                    dialog.dismiss();
+                });
+            } else if (licenseManager.canStartTrial()) {
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setText("Start trial");
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> {
+                    startTrial();
+                    dialog.dismiss();
+                });
+            }
+        });
+        dialog.show();
+    }
+
+    private boolean activateLicense(String code) {
+        if (licenseManager.activate(code)) {
             Toast.makeText(this, "Activated", Toast.LENGTH_SHORT).show();
-            licenseInputView.setText("");
+            renderLicense();
+            return true;
         } else {
             Toast.makeText(this, licenseManager.lastReason(), Toast.LENGTH_LONG).show();
+            renderLicense();
+            return false;
         }
-        renderLicense();
     }
 
     private void startTrial() {

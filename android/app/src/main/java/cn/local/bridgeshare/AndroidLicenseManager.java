@@ -103,10 +103,20 @@ public class AndroidLicenseManager {
     }
 
     public String statusText() {
-        if (isLicensed()) return "Licensed";
+        if (isLicensed()) return compactStatusText();
         if (isTrialActive()) return "Free trial · " + trialDaysRemaining() + " day" + (trialDaysRemaining() == 1 ? "" : "s") + " remaining";
         if (trialExpired()) return "Trial expired. Registration is required.";
         return "Start a 7-day trial or activate with a registration code.";
+    }
+
+    public String compactStatusText() {
+        if (isLicensed()) {
+            String expiresAt = currentLicenseValue("expiresAt");
+            if (expiresAt == null || expiresAt.isEmpty()) return "Permanent";
+            return "Until " + expiresAt.substring(0, Math.min(10, expiresAt.length()));
+        }
+        if (isTrialActive()) return "Trial " + trialDaysRemaining() + "d";
+        return "Register";
     }
 
     public String lastReason() {
@@ -141,6 +151,19 @@ public class AndroidLicenseManager {
         } catch (Exception e) {
             lastReason = "Registration code could not be parsed";
             return false;
+        }
+    }
+
+    private String currentLicenseValue(String key) {
+        try {
+            String saved = preferences.getString(KEY_LICENSE, "");
+            if (saved == null || saved.trim().isEmpty()) return "";
+            String[] parts = saved.trim().split("\\.");
+            if (parts.length != 3) return "";
+            String payload = new String(Base64.decode(padBase64Url(parts[1]), Base64.URL_SAFE | Base64.NO_WRAP), StandardCharsets.UTF_8);
+            return jsonValue(payload, key);
+        } catch (Exception e) {
+            return "";
         }
     }
 
