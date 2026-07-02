@@ -6,7 +6,9 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "dist:win": "electron-builder --win portable --x64"
+    "start:keygen": "electron ./tools/keygen/main.js",
+    "dist:win": "electron-builder --win portable --x64",
+    "dist:keygen": "electron-builder --win portable --x64 --config keygen-builder.json"
   },
   "dependencies": {
     "qrcode": "^1.5.4"

@@ -12,3 +12,4 @@ android/app/keystore.properties
 *.exe
 *.jks
 windows/tools/license-private-key.pem
+windows/dist-keygen/

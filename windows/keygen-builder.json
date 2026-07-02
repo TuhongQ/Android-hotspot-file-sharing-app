@@ -1,0 +1,24 @@
+{
+  "appId": "cn.local.bridgeshare.keygen",
+  "productName": "Bridge Share Keygen",
+  "directories": {
+    "output": "dist-keygen"
+  },
+  "files": [
+    "tools/keygen/**/*",
+    "tools/license-private-key.pem",
+    "package.json"
+  ],
+  "extraMetadata": {
+    "name": "bridge-share-keygen",
+    "main": "tools/keygen/main.js"
+  },
+  "asarUnpack": [
+    "tools/license-private-key.pem"
+  ],
+  "win": {
+    "target": [
+      "portable"
+    ]
+  }
+}

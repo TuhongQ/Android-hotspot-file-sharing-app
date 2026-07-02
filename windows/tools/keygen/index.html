@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bridge Share Keygen</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p>BRIDGE SHARE KEYGEN</p>
+        <h1>注册码生成器</h1>
+        <span>输入客户机器码，生成一机一码授权。</span>
+      </section>
+
+      <section class="panel">
+        <label for="machineCode">客户机器码</label>
+        <input id="machineCode" placeholder="例如 ABCDEF-123456-789ABC-DEF123-456789" />
+
+        <label for="customer">客户名称</label>
+        <input id="customer" placeholder="例如 张三 / 公司名称" />
+
+        <div class="split">
+          <div>
+            <label for="expiresAt">到期日期</label>
+            <input id="expiresAt" type="date" />
+          </div>
+          <label class="check">
+            <input id="permanent" type="checkbox" checked />
+            <span>永久授权</span>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="generate">生成注册码</button>
+          <button id="clear" class="ghost">清空</button>
+        </div>
+
+        <label for="licenseKey">注册码</label>
+        <textarea id="licenseKey" readonly placeholder="生成结果会显示在这里"></textarea>
+
+        <div class="actions">
+          <button id="copy">复制注册码</button>
+        </div>
+        <p id="message"></p>
+      </section>
+    </main>
+    <script src="./renderer.js"></script>
+  </body>
+</html>
